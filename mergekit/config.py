@@ -110,12 +110,6 @@ class MergeConfiguration(BaseModel):
                     models.add(src.model)
         return list(models)
 
-    @field_validator("tokenizer_source", mode="before")
-    @classmethod
-    def migrate_legacy_tokenizer(_, raw):
-        if raw is None:
-            return "base"
-        return raw
 
     @model_validator(mode="after")
     def validate_inputs(self):
@@ -124,7 +118,9 @@ class MergeConfiguration(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_tokenizer(self):
+    def migrate_and_validate_tokenizer(self):
+        if self.tokenizer_source is None and self.tokenizer is None:
+            self.tokenizer_source = "base"
         if self.tokenizer_source and self.tokenizer:
             raise RuntimeError("Cannot specify both tokenizer_source and tokenizer")
         return self
