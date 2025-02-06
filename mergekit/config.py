@@ -90,9 +90,7 @@ class MergeConfiguration(BaseModel):
     parameters: Optional[Dict[str, ParameterSetting]] = None
     base_model: Optional[ModelReference] = None
     dtype: Optional[str] = None
-    tokenizer_source: Union[Literal["union"], Literal["base"], ModelReference] = (
-        "base"
-    )
+    tokenizer_source: Union[Literal["union"], Literal["base"], ModelReference] = "base"
     tokenizer: Optional[TokenizerConfig] = None
     chat_template: Optional[str] = None
     out_dtype: Optional[str] = None
