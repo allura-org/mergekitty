@@ -112,7 +112,7 @@ class MergeConfiguration(BaseModel):
 
     @field_validator("tokenizer_source", mode="before")
     def migrate_legacy_tokenizer(_, raw):
-        if raw == None:
+        if raw is None:
             return "base"
         return raw
 
