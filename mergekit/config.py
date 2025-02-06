@@ -111,6 +111,7 @@ class MergeConfiguration(BaseModel):
         return list(models)
 
     @field_validator("tokenizer_source", mode="before")
+    @classmethod
     def migrate_legacy_tokenizer(_, raw):
         if raw is None:
             return "base"
