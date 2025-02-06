@@ -16,18 +16,22 @@ from mergekit.io import LazyTensorLoader
 
 @pytest.fixture(scope="session")
 def model_a(tmp_path_factory):
-    return make_picollama(tmp_path_factory.mktemp("model_a"))
-
+    model_path = make_picollama(tmp_path_factory.mktemp("model_a"))
+    make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
+    return model_path
 
 @pytest.fixture(scope="session")
 def model_b(tmp_path_factory):
-    return make_picollama(tmp_path_factory.mktemp("model_b"))
+    model_path = make_picollama(tmp_path_factory.mktemp("model_b"))
+    make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
+    return model_path
 
 
 @pytest.fixture(scope="session")
 def model_c(tmp_path_factory):
-    return make_picollama(tmp_path_factory.mktemp("model_c"))
-
+    model_path = make_picollama(tmp_path_factory.mktemp("model_c"))
+    make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
+    return model_path
 
 class TestBasicMerges:
     def test_gpt2_copy(self):
