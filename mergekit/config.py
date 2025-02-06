@@ -91,7 +91,7 @@ class MergeConfiguration(BaseModel):
     base_model: Optional[ModelReference] = None
     dtype: Optional[str] = None
     tokenizer_source: Union[Literal["union"], Literal["base"], ModelReference, None] = (
-        None
+        "base"
     )
     tokenizer: Optional[TokenizerConfig] = None
     chat_template: Optional[str] = None
@@ -117,7 +117,9 @@ class MergeConfiguration(BaseModel):
         return self
 
     @model_validator(mode="after")
-    def validate_tokenizer(self):
+    def migrate_and_validate_tokenizer(self):
+        if self.tokenizer_source is None and self.tokenizer is None:
+            self.tokenizer_source = "base"
         if self.tokenizer_source and self.tokenizer:
             raise RuntimeError("Cannot specify both tokenizer_source and tokenizer")
         return self
