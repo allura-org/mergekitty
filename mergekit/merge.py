@@ -18,7 +18,6 @@ import importlib
 import importlib.resources
 import logging
 import os
-import shutil
 from collections import Counter
 from typing import Optional
 
