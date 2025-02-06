@@ -124,11 +124,14 @@ def run_merge(
             fp.write(config_source)
 
     if tokenizer is None:
-        logging.error("Somehow, the tokenizer was not created during the merging process -- did you manually set `tokenizer_source` to None?")
+        logging.error(
+            "Somehow, the tokenizer was not created during the merging process -- did you manually set `tokenizer_source` to None?"
+        )
     else:
         logging.info("Saving tokenizer")
         _set_chat_template(tokenizer, merge_config)
         tokenizer.save_pretrained(out_path, safe_serialization=True)
+
 
 def _set_chat_template(
     tokenizer: transformers.PreTrainedTokenizerBase,
@@ -173,6 +176,7 @@ def _set_chat_template(
         raise RuntimeError(f"Invalid chat template: {chat_template}")
 
     tokenizer.chat_template = chat_template
+
 
 def _model_out_config(
     config: MergeConfiguration,
