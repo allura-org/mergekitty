@@ -17,7 +17,7 @@
 from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import yaml
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, model_validator
 from typing_extensions import Literal, TypeAlias
 
 from mergekit.common import ModelReference
@@ -109,7 +109,6 @@ class MergeConfiguration(BaseModel):
                 for src in s.sources:
                     models.add(src.model)
         return list(models)
-
 
     @model_validator(mode="after")
     def validate_inputs(self):
