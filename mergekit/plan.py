@@ -30,7 +30,7 @@ from mergekit.config import (
     MergeConfiguration,
     OutputSliceDefinition,
 )
-from mergekit.graph import Task
+from mergekit.task import Task
 from mergekit.io.tasks import (
     FinalizeModel,
     GatherTensors,

@@ -73,6 +73,7 @@ include = [
 [tool.hatch.build.targets.wheel]
 packages = [
     "mergekit",
+    "mergekit.executor",
     "mergekit.io",
     "mergekit.merge_methods",
     "mergekit.moe",

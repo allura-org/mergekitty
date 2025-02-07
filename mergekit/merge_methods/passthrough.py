@@ -19,7 +19,7 @@ import torch
 from typing_extensions import override
 
 from mergekit.common import ImmutableMap, ModelReference
-from mergekit.graph import Task
+from mergekit.task import Task
 from mergekit.merge_methods.base import (
     ConfigParameterDef,
     MergeMethod,

@@ -20,7 +20,7 @@ from typing import Dict, Optional
 import torch
 
 from mergekit.common import ImmutableMap, ModelReference
-from mergekit.graph import Task
+from mergekit.task import Task
 from mergekit.io.tasks import GatherTensors
 from mergekit.tokenizer.build import BuildTokenizer, TokenizerInfo
 from mergekit.tokenizer.config import (

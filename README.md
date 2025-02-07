@@ -23,6 +23,7 @@
 
 This fork is a work in progress. Here are some of the breaking changes we've made so far:
 
+- legacy tokenizer copying has been removed -- `tokenizer_source` now defaults to `"base"`, which is the same as the legacy functionality
 - `bakllama` and `mergekit-legacy` have been removed. if someone can give me a real (not fake) use for them then they will be added back.
 - `mergekit-evolve` has been removed. if anyone can give me a real reason why it should remain a wart tacked onto the rest of mergekit instead of an out-of-tree tool that depends on mergekit, I'll reconsider.
 - `nuslerp` has been renamed to `slerp` (and the original `slerp` has been removed), and it now supports using the parameter `t` (SLERP behavior) OR tensor parameter `weight` (NuSLERP behavior) to specify the weighting of a given tensor.
