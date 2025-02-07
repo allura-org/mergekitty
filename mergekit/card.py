@@ -1,4 +1,5 @@
-# Copyright (C) 2025 Arcee AI
+# Partly Copyright (C) 2025 Arcee AI
+# Partly Copyright (C) 2025 Allura-org
 #
 # This software is free software: you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public License as
@@ -30,7 +31,7 @@ CARD_TEMPLATE = """---
 ---
 # {name}
 
-This is a merge of pre-trained language models created using [mergekit](https://github.com/cg123/mergekit).
+This is a merge of pre-trained language models created using [mergekit](https://github.com/allura-org/mergekit).
 
 ## Merge Details
 ### Merge Method
@@ -56,7 +57,7 @@ CARD_TEMPLATE_LORA = """---
 ---
 # {name}
 
-This is a LoRA extracted from a language model. It was extracted using [mergekit](https://github.com/arcee-ai/mergekit).
+This is a LoRA extracted from a language model. It was extracted using [mergekit](https://github.com/allura-org/mergekit).
 
 ## LoRA Details
 
