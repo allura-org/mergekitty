@@ -4,12 +4,15 @@
 import torch
 from typing import Any, Dict, Iterator, List, Set, Tuple, Union
 import multiprocessing
-
 import networkx
 import tqdm
 
 
 from mergekitty.task import Task
+
+# TODO: this cannot *possibly* be the best way to do this. there must be a better way. i refuse to believe that this is the best way to do this.
+RANK = None
+VALUES = None
 
 
 class MultiThreadedExecutor:
@@ -55,9 +58,17 @@ class MultiThreadedExecutor:
         self.schedule = self._make_schedule(tasks)
         self.targets = tasks
 
+    @staticmethod
+    def _initialize_process(ranks: multiprocessing.Queue, values: Dict[Task, Any]):
+        global RANK, VALUES
+        RANK = ranks.get()
+        VALUES = values
+
     def _execute_task(self, task_idx: Tuple[int, Task]) -> Tuple[Task, Any]:
-        idx, task = task_idx
-        rank = multiprocessing.current_process()._identity[0]
+        global RANK, VALUES
+
+        _idx, task = task_idx
+        rank = RANK
         math_device = self.math_devices[rank]
         storage_device = self.storage_devices[rank]
 
@@ -65,7 +76,7 @@ class MultiThreadedExecutor:
 
         arguments = {}
         for name, dep in task.arguments().items():
-            value = dep.value
+            value = VALUES[dep]
 
             if use_math_device:
                 if isinstance(value, torch.Tensor) and value.device != math_device:
@@ -87,6 +98,8 @@ class MultiThreadedExecutor:
         if isinstance(res, torch.Tensor) and res.device != storage_device:
             res = res.to(storage_device)
 
+        VALUES[task] = res
+
         return (task, res)
 
     def run(self, quiet: bool = False) -> Iterator[Tuple[Task, Any]]:
@@ -106,15 +119,23 @@ class MultiThreadedExecutor:
             if task not in last_use_index:
                 last_use_index[task] = idx
 
-        values: Dict[Task, Any] = {}
-        with multiprocessing.Pool(len(self.math_devices)) as pool:
-            it = pool.imap_unordered(self._execute_task, list(enumerate(self.schedule)))
-            for task, value in tqdm.tqdm(
+        manager = multiprocessing.Manager()
+        values = manager.dict()
+        ranks = multiprocessing.Queue()
+        for i in range(len(self.math_devices)):
+            ranks.put(i)
+
+        with multiprocessing.Pool(
+            len(self.math_devices),
+            initializer=self._initialize_process,
+            initargs=(ranks, values),
+        ) as pool:
+            it = pool.imap(self._execute_task, list(enumerate(self.schedule)))
+            for task, _ in tqdm.tqdm(
                 it, total=len(self.schedule), disable=quiet, desc="Executing graph"
             ):
-                values[task] = value
                 if task in self.targets:
-                    yield (task, value)
+                    yield (task, values[task])
 
     def execute(self) -> None:
         """
@@ -125,6 +146,7 @@ class MultiThreadedExecutor:
 
     DUMMY_TASK_VALUE = "!!DUMMY!!"
 
+    # TODO: i wonder if this is worth multiprocessing too?
     def _make_schedule(self, targets: List[Task]) -> List[Task]:
         self.schedule = []
         self.dependencies = self._build_dependencies(targets)

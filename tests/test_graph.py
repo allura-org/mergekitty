@@ -7,7 +7,7 @@ import pytest
 
 from mergekitty.common import ImmutableMap
 from mergekitty.task import Task
-from mergekitty.executor import SingleThreadedExecutor
+from mergekitty.executor import SingleThreadedExecutor, MultiThreadedExecutor
 
 EXECUTION_COUNTS: Dict[Task, int] = {}
 
@@ -58,7 +58,7 @@ class TestTaskClass:
 
 
 # Test cases for the Executor implementation
-class TestExecutorClass:
+class TestSingleThreadedExecutorClass:
     def test_executor_initialization(self):
         # Testing initialization with single task
         task = create_mock_task("task1")
@@ -120,7 +120,72 @@ class TestExecutorClass:
         )
 
 
-class TestExecutorGroupLabel:
+# Test cases for the MultiThreadedExecutor implementation
+class TestMultiThreadedExecutorClass:
+    def test_executor_initialization(self):
+        # Testing initialization with single task
+
+        task = create_mock_task("task1")
+        executor = MultiThreadedExecutor([task])
+        assert executor.targets == [task], (
+            "Executor did not initialize with correct targets"
+        )
+
+    def test_executor_empty_list(self):
+        list(MultiThreadedExecutor([]).run())
+
+    def test_executor_scheduling(self):
+        # Testing scheduling with dependencies
+        task1 = create_mock_task("task1", result=1)
+        task2 = create_mock_task("task2", result=2, dependencies={"task1": task1})
+        executor = MultiThreadedExecutor([task2])
+        assert len(executor._make_schedule([task2])) == 2, (
+            "Schedule should include two tasks"
+        )
+
+    def test_executor_dependency_building(self):
+        # Testing dependency building
+        task1 = create_mock_task("task1")
+        task2 = create_mock_task("task2", dependencies={"task1": task1})
+        executor = MultiThreadedExecutor([task2])
+        dependencies = executor._build_dependencies([task2])
+        assert task1 in dependencies[task2], "Task1 should be a dependency of Task2"
+
+    def test_executor_run(self):
+        # Testing execution through the run method
+        task1 = create_mock_task("task1", result=10)
+        task2 = create_mock_task("task2", result=20, dependencies={"task1": task1})
+        executor = MultiThreadedExecutor([task2])
+        results = list(executor.run())
+
+        assert len(results) == 1 and results[0][1] == 20, (
+            "Executor run did not yield correct results"
+        )
+
+    def test_executor_execute(self):
+        # Testing execute method for side effects
+        task1 = create_mock_task("task1", result=10)
+        executor = MultiThreadedExecutor([task1])
+        # No assert needed; we're ensuring no exceptions are raised and method completes
+        executor.execute()
+
+    def test_dependency_ordering(self):
+        # Testing the order of task execution respects dependencies
+        task1 = create_mock_task("task1", result=1)
+        task2 = create_mock_task("task2", result=2, dependencies={"task1": task1})
+        task3 = create_mock_task("task3", result=3, dependencies={"task2": task2})
+        executor = MultiThreadedExecutor([task3])
+
+        schedule = executor._make_schedule([task3])
+        assert schedule.index(task1) < schedule.index(task2), (
+            "Task1 should be scheduled before Task2"
+        )
+        assert schedule.index(task2) < schedule.index(task3), (
+            "Task2 should be scheduled before Task3"
+        )
+
+
+class TestSingleThreadedExecutorGroupLabel:
     def test_group_label_scheduling(self):
         # Create tasks with group labels and dependencies
         task1 = create_mock_task("task1", group_label="group1")
@@ -176,7 +241,7 @@ class TestExecutorGroupLabel:
         )
 
 
-class TestExecutorSingleExecution:
+class TestSingleThreadedExecutorSingleExecution:
     def test_single_execution_per_task(self):
         EXECUTION_COUNTS.clear()
 
@@ -201,7 +266,7 @@ class CircularTask(Task):
         assert False, "Task with circular dependency executed"
 
 
-class TestExecutorCircularDependency:
+class TestSingleThreadedExecutorCircularDependency:
     def test_circular_dependency(self):
         with pytest.raises(networkx.NetworkXUnfeasible):
             SingleThreadedExecutor([CircularTask()]).execute()
