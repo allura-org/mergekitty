@@ -21,7 +21,7 @@
 
 ## Reasons for the fork
 
-This project is a fork of `mergekit` by Arcee.ai, and originally created by Charles Goddard. This fork was created from the last LGPL licensed commit from the original `mergekit` repository. Mainly due to it's anti-community switch to BSL (in light of how much work the *community* did to make `mergekit` what it is today), this fork was created.
+This project is a fork of `mergekit` by Arcee.ai, and originally created by Charles Goddard. This fork was created from the last LGPL licensed commit from the original `mergekit` repository, mainly due to it's anti-community switch to the source-available BSL license (in light of how much work the *community* did to make `mergekit` what it is today).
 
 ## Breaking changes
 
