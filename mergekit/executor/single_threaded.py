@@ -1,8 +1,12 @@
+# Partly Copyright (C) 2025 Arcee AI
+# Partly Copyright (C) 2025 Allura-org
+
 import torch
 from typing import Any, Dict, Iterator, List, Set, Tuple, Union
 
 import networkx
 import tqdm
+
 
 from mergekit.task import Task
 
