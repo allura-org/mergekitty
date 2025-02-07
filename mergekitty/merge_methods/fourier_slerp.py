@@ -152,12 +152,16 @@ def interpolate_fft_components(
     del small_values_v0, small_values_v1, sign_mask
     larger_values_mask = abs_real_v0 > abs_real_v1
 
+    del abs_real_v0, abs_real_v1
+
     # Interpolate real parts using SLERP
     result_fft.real[slerp_mask] = slerp(real_v0[slerp_mask], real_v1[slerp_mask], t)
     result_fft.real[sum_mask] = real_v0[sum_mask] + t_sum * real_v1[sum_mask]
     result_fft.real[rest_mask] = torch.where(
         larger_values_mask[rest_mask], real_v0[rest_mask], real_v1[rest_mask]
     )
+
+    del slerp_mask, sum_mask, rest_mask, larger_values_mask
 
     if cull_pct > 0:
         all_real, rest = torch.sort(result_fft.real.abs().ravel(), descending=False)
@@ -178,12 +182,6 @@ def interpolate_fft_components(
     del (
         real_v0,
         real_v1,
-        abs_real_v0,
-        abs_real_v1,
-        larger_values_mask,
-        slerp_mask,
-        sum_mask,
-        rest_mask,
     )
 
     if interp_imag:
