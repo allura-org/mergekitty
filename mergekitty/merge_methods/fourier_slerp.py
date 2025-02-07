@@ -306,7 +306,7 @@ def fourier_slerp(
 
     norm_a = a.norm().item()
     norm_b = b.norm().item()
-    target_norm = torch.mean([norm_a, norm_b]).item() + target_norm_offset
+    target_norm = ((norm_a + norm_b) / 2) + target_norm_offset
 
     if abs(norm_a) < abs(norm_b):
         a, b = b, a
