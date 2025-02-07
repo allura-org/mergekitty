@@ -69,10 +69,11 @@ def fourier_slerp(
             torch.complex32
         )
 
+        ires = torch.zeros_like(v0, device=v0.device, dtype=v0.dtype)
         i0 = fft(v0.imag).real.to(torch.float32)
         i1 = fft(v1.imag).real.to(torch.float32)
 
-        res.imag = nuslerp(weight_b / (weight_a + weight_b), i0, i1).to(torch.complex32)
+        ires.imag = ifft(nuslerp(weight_b / (weight_a + weight_b), i0, i1))
 
     res = ifft(res).real
     res = res * target_norm
