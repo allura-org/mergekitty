@@ -77,8 +77,11 @@ def fourier_slerp(
         i1 = fft(v1.imag).real.to(torch.float32)
         del v1
 
-        ires.imag = ifft(nuslerp(weight_b / (weight_a + weight_b), i0, i1))
+        ires.real = nuslerp(weight_b / (weight_a + weight_b), i0, i1)
         del i0, i1
+
+        res.imag = ifft(ires).real
+        del ires
 
     res = ifft(res).real
     res = res * target_norm
