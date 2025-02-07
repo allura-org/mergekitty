@@ -54,25 +54,27 @@ def fourier_slerp(
     v0 = a / norm_a
     v1 = b / norm_b
 
-    v0 = fft(v0)
-    v1 = fft(v1)
+    v0 = fft(v0.to(torch.float32))
+    v1 = fft(v1.to(torch.float32))
 
     if ratio < 0.1:
         res = v0 * weight_a + v1 * weight_b
     else:
         res = torch.zeros_like(v0, device=v0.device, dtype=v0.dtype)
 
-        real_v0 = v0.real
-        real_v1 = v1.real
+        real_v0 = v0.real.to(torch.float32)
+        real_v1 = v1.real.to(torch.float32)
 
-        res.real = nuslerp(weight_b / (weight_a + weight_b), real_v0, real_v1)
+        res.real = nuslerp(weight_b / (weight_a + weight_b), real_v0, real_v1).to(
+            torch.complex32
+        )
 
-        i0_fft = fft(v0.imag)
-        i1_fft = fft(v1.imag)
+        i0 = fft(v0.imag).real.to(torch.float32)
+        i1 = fft(v1.imag).real.to(torch.float32)
 
-        res.imag = nuslerp(weight_b / (weight_a + weight_b), i0_fft, i1_fft)
+        res.imag = nuslerp(weight_b / (weight_a + weight_b), i0, i1).to(torch.complex32)
 
     res = ifft(res).real
     res = res * target_norm
 
-    return res
+    return res.to(a.dtype)

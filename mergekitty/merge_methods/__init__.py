@@ -15,6 +15,7 @@
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
 import mergekitty.merge_methods.multislerp as multislerp
+import mergekitty.merge_methods.fourier_slerp as fourier_slerp
 from mergekitty.merge_methods.base import MergeMethod
 from mergekitty.merge_methods.generalized_task_arithmetic import (
     GeneralizedTaskArithmeticMerge,
@@ -39,4 +40,5 @@ __all__ = [
     "GeneralizedTaskArithmeticMerge",
     "REGISTERED_MERGE_METHODS",
     "multislerp",
+    "fourier_slerp",
 ]
