@@ -1,6 +1,6 @@
-# mergekit
+# mergekitty
 
-`mergekit` is a toolkit for merging pre-trained language models. `mergekit` uses an out-of-core approach to perform unreasonably elaborate merges in resource-constrained situations. Merges can be run entirely on CPU or accelerated with as little as 8 GB of VRAM. Many merging algorithms are supported, with more coming as they catch my attention.
+`mergekitty` is a toolkit for merging pre-trained language models. `mergekitty` uses an out-of-core approach to perform unreasonably elaborate merges in resource-constrained situations. Merges can be run entirely on CPU or accelerated with as little as 8 GB of VRAM. Many merging algorithms are supported, with more coming as they catch my attention.
 
 ## Contents
 
@@ -19,10 +19,15 @@
 - [Development](#development)
 - [Citation](#citation)
 
+## Reasons for the fork
+
+This project is a fork of `mergekit` by Arcee.ai, and originally created by Charles Goddard. This fork was created from the last LGPL licensed commit from the original `mergekit` repository. Mainly due to it's anti-community switch to BSL (in light of how much work the *community* did to make `mergekit` what it is today), this fork was created.
+
 ## Breaking changes
 
 This fork is a work in progress. Here are some of the breaking changes we've made so far:
 
+- ALL SCRIPTS, LIBRARY NAMES, ETC HAVE BEEN RENAMED TO `mergekitty`. THIS ONE IS BIG (but you can just replace `mergekit` with `mergekitty` in your codebase/scripts and it will work)
 - legacy tokenizer copying has been removed -- `tokenizer_source` now defaults to `"base"`, which is the same as the legacy functionality
 - `bakllama` and `mergekit-legacy` have been removed. if someone can give me a real (not fake) use for them then they will be added back.
 - `mergekit-evolve` has been removed. if anyone can give me a real reason why it should remain a wart tacked onto the rest of mergekit instead of an out-of-tree tool that depends on mergekit, I'll reconsider.
@@ -44,7 +49,7 @@ Unlike traditional ensembling which requires running multiple models, merged mod
 
 ## Features
 
-Key features of `mergekit` include:
+Key features of `mergekitty` include:
 
 - Supports Llama, Mistral, GPT-NeoX, StableLM, and more
 - Many [merge methods](#merge-methods)
@@ -57,28 +62,29 @@ Key features of `mergekit` include:
 
 ## Installation
 
+From source:
 ```sh
-git clone https://github.com/allura-org/mergekit.git
-cd mergekit
+git clone https://github.com/allura-org/mergekitty.git
+cd mergekitty
 
 pip install -e .  # install the package and make scripts available
 ```
 
 ## Usage
 
-The script `mergekit-yaml` is the main entry point for `mergekit`. It takes a YAML configuration file and an output path, like so:
+The script `mergekitty-yaml` is the main entry point for `mergekitty`. It takes a YAML configuration file and an output path, like so:
 
 ```sh
-mergekit-yaml path/to/your/config.yml ./output-model-directory [--cuda] [--lazy-unpickle] [--allow-crimes] [... other options]
+mergekitty-yaml path/to/your/config.yml ./output-model-directory [--cuda] [--lazy-unpickle] [--allow-crimes] [... other options]
 ```
 
 This will run the merge and write your merged model to `./output-model-directory`.
 
-For more information on the arguments accepted by `mergekit-yaml` run the command `mergekit-yaml --help`.
+For more information on the arguments accepted by `mergekitty-yaml` run the command `mergekitty-yaml --help`.
 
 ### Uploading to Huggingface
 
-When you have a merged model you're happy with, you may want to share it on the Hugging Face Hub. `mergekit` generates a `README.md` for your merge with some basic information for a model card. You can edit it to include more details about your merge, like giving it a good name or explaining what it's good at; rewrite it entirely; or use the generated `README.md` as-is. It is also possible to edit your `README.md` online once it has been uploaded to the Hub.
+When you have a merged model you're happy with, you may want to share it on the Hugging Face Hub. `mergekitty` generates a `README.md` for your merge with some basic information for a model card. You can edit it to include more details about your merge, like giving it a good name or explaining what it's good at; rewrite it entirely; or use the generated `README.md` as-is. It is also possible to edit your `README.md` online once it has been uploaded to the Hub.
 
 Once you're happy with your model card and merged model, you can upload it to the Hugging Face Hub using the [huggingface_hub](https://huggingface.co/docs/huggingface_hub/index) Python library.
 
@@ -149,7 +155,7 @@ The `source` field determines the vocabulary of the output model:
 
 ##### Token Embedding Handling
 
-When merging models with different vocabularies, mergekit uses smart defaults to handle token embeddings:
+When merging models with different vocabularies, `mergekitty` uses smart defaults to handle token embeddings:
 
 - If a token exists in the base model, its embedding is used as the default
 - If only one model has the token, that model's embedding is used
@@ -350,33 +356,34 @@ Parameters:
 
 ## LoRA extraction
 
-Mergekit allows extracting PEFT-compatible low-rank approximations of finetuned models.
+`mergekitty` allows extracting PEFT-compatible low-rank approximations of finetuned models.
 
 ### Usage
 
 ```sh
-mergekit-extract-lora finetuned_model_id_or_path base_model_id_or_path output_path [--no-lazy-unpickle] --rank=desired_rank
+mergekitty-extract-lora finetuned_model_id_or_path base_model_id_or_path output_path [--no-lazy-unpickle] --rank=desired_rank
 ```
 
 ## Mixture of Experts merging
 
-The `mergekit-moe` script supports merging multiple dense models into a mixture of experts, either for direct use or for further training. For more details see the [`mergekit-moe` documentation](docs/moe.md).
+The `mergekitty-moe` script supports merging multiple dense models into a mixture of experts, either for direct use or for further training. For more details see the [`mergekit-moe` documentation](docs/moe.md).
 
 ## Development
 
-The Allura fork is developed using Hatch and UV. My recommended setup:
+`mergekitty` is developed using Hatch and UV. My recommended setup:
 ```sh
 # after installing uv:
 uv tool install hatch
 hatch test # run tests
 hatch run lint # run ruff
 hatch run format # run ruff format
-hatch run mergekit-yaml examples/bio-merge.yml ./bio-merge --cuda # run a test merge
+hatch run mergekitty-yaml examples/bio-merge.yml ./bio-merge --cuda # run a test merge
 ```
 
 ## Citation
 
-If you find `mergekit` useful in your research (even our unrelated fork), please consider citing the original [paper](https://aclanthology.org/2024.emnlp-industry.36/):
+If you find `mergekitty` useful in your research, please consider citing the [original `mergekit` paper](https://aclanthology.org/2024.emnlp-industry.36/):
+
 
 ```bibtex
 @inproceedings{goddard-etal-2024-arcees,

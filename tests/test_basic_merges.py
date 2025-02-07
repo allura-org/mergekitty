@@ -4,14 +4,14 @@ import pytest
 from common import make_picollama, make_tokenizer, run_and_check_merge
 from transformers import AutoConfig
 
-from mergekit.config import (
+from mergekitty.config import (
     InputModelDefinition,
     InputSliceDefinition,
     MergeConfiguration,
     OutputSliceDefinition,
     ParameterSetting,
 )
-from mergekit.io import LazyTensorLoader
+from mergekitty.io import LazyTensorLoader
 
 
 @pytest.fixture(scope="session")

@@ -6,7 +6,7 @@ import pytest
 from common import make_picollama, make_tokenizer, run_and_check_merge
 from transformers import AutoTokenizer
 
-from mergekit.config import InputModelDefinition, MergeConfiguration
+from mergekitty.config import InputModelDefinition, MergeConfiguration
 
 
 def check_chat_template(model_path: str, needle: Optional[str] = None):

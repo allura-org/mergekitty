@@ -1,7 +1,7 @@
 import pytest
 import torch
 
-from mergekit.sparsify import SparsificationMethod, sparsify
+from mergekitty.sparsify import SparsificationMethod, sparsify
 
 
 @pytest.fixture

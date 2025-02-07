@@ -1,12 +1,12 @@
-# mergekit-moe
+# mergekitty-moe
 
-`mergekit-moe` is a script for combining Mistral or Llama models of the same size into Mixtral Mixture of Experts models. The script will combine the self-attention and layer normalization parameters from a "base" model with the MLP parameters from a set of "expert" models.
+`mergekitty-moe` is a script for combining Mistral or Llama models of the same size into Mixtral Mixture of Experts models. The script will combine the self-attention and layer normalization parameters from a "base" model with the MLP parameters from a set of "expert" models.
 
 If using the `hidden` or `cheap_embed` gate mode, the output model will be usable without any further training. If you are initializing a model to do further training on, such as for sparse upcycling, then use the `random` gate mode to get a model ready for training.
 
 ## Configuration
 
-`mergekit-moe` uses its own YML configuration syntax, which looks like so:
+`mergekitty-moe` uses its own YML configuration syntax, which looks like so:
 
 ```yml
 base_model: path/to/self_attn_donor
@@ -25,7 +25,7 @@ experts:
   # ... and so on
 ```
 
-The script takes two arguments, an input config and an output path: `mergekit-moe ./config.yml ./my-clowncar-moe-12x180B`
+The script takes two arguments, an input config and an output path: `mergekitty-moe ./config.yml ./my-clowncar-moe-12x180B`
 
 Currently the script can output models that use the Mixtral, Deepseek MoE, or Qwen MoE architectures. Some output architectures support a shared expert which will be activated for all tokens, which can be configured like this:
 

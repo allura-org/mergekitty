@@ -1,8 +1,8 @@
-# Extending MergeKit with Custom Merge Methods
+# Extending `mergekitty` with Custom Merge Methods
 
 ## Overview
 
-MergeKit offers two different paths for implementing custom merge methods:
+`mergekitty` offers two different paths for implementing custom merge methods:
 
 |                        | Decorator API         | Class-based API             |
 | ---------------------- | --------------------- | --------------------------- |
@@ -12,11 +12,11 @@ MergeKit offers two different paths for implementing custom merge methods:
 | **Execution Flow**     | Single-step           | Arbitrary computation graph |
 | **Best For**           | Simple tensor ops     | Complex merge strategies    |
 
-Either approach benefits from MergeKit's underlying task system for resource management and execution control. The question of which to use largely depends on the complexity of the merge operation and the level of control needed.
+Either approach benefits from `mergekitty`'s underlying task system for resource management and execution control. The question of which to use largely depends on the complexity of the merge operation and the level of control needed.
 
 ### Core Task System Features
 
-MergeKit's computational graph infrastructure provides sophisticated resource management that all merge methods inherit:
+`mergekitty`'s computational graph infrastructure provides sophisticated resource management that all merge methods inherit:
 
 - **Smart Memory Management**
   - Automatic return value lifecycle tracking
@@ -52,12 +52,12 @@ Choose when you need:
 ### Basic Workflow
 1. Define a type-annotated Python function with your merge logic
 2. Add the `@merge_method` decorator with configuration
-3. Register by importing in `mergekit/merge_methods/__init__.py`
+3. Register by importing in `mergekitty/merge_methods/__init__.py`
 
 ### Example: Weighted Average
 
 ```python
-from mergekit.merge_methods.easy_define import merge_method
+from mergekitty.merge_methods.easy_define import merge_method
 from typing import List
 import torch
 
@@ -121,9 +121,9 @@ For complex merges requiring granular control, implement `MergeMethod` and `Task
 ### Example Implementation
 
 ```python
-from mergekit.merge_methods.base import MergeMethod, ConfigParameterDef
-from mergekit.common import ImmutableMap, ModelReference
-from mergekit.graph import Task
+from mergekitty.merge_methods.base import MergeMethod, ConfigParameterDef
+from mergekitty.common import ImmutableMap, ModelReference
+from mergekitty.graph import Task
 from typing import Any, Dict, List
 
 
@@ -210,10 +210,10 @@ The class-based API provides fine-grained control over execution:
 
 ### Registration
 
-Add class-based methods to `STATIC_MERGE_METHODS` in `mergekit/merge_methods/registry.py`:
+Add class-based methods to `STATIC_MERGE_METHODS` in `mergekitty/merge_methods/registry.py`:
 
 ```python
-from mergekit.merge_methods.my_module import CustomMerge
+from mergekitty.merge_methods.my_module import CustomMerge
 
 STATIC_MERGE_METHODS: List[MergeMethod] = [
     CustomMerge(),
@@ -223,14 +223,14 @@ STATIC_MERGE_METHODS: List[MergeMethod] = [
 
 ## Reference Implementations
 
-1. **Linear Merge** (`mergekit.merge_methods.linear`):
+1. **Linear Merge** (`mergekitty.merge_methods.linear`):
    - Basic weighted averaging
    - Good example of class-based implementation
 
-2. **Multi-SLERP** (`mergekit.merge_methods.multislerp`):
+2. **Multi-SLERP** (`mergekitty.merge_methods.multislerp`):
    - Hypersphere interpolation
    - Complex decorator usage example
 
-3. **Task Arithmetic** (`mergekit.merge_methods.task_arithmetic`):
+3. **Task Arithmetic** (`mergekitty.merge_methods.task_arithmetic`):
    - Advanced graph-based implementation
    - TIES/Magnitude pruning example

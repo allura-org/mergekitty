@@ -1,6 +1,6 @@
 import pytest
 
-from mergekit.common import ModelPath, ModelReference
+from mergekitty.common import ModelPath, ModelReference
 
 
 class TestModelReference:

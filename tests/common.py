@@ -14,10 +14,10 @@ from transformers import (
 )
 import tokenizers
 
-from mergekit.architecture import get_architecture_info
-from mergekit.config import MergeConfiguration
-from mergekit.io.lazy_tensor_loader import LazyTensorLoader, ShardedTensorIndex
-from mergekit.merge import MergeOptions, run_merge
+from mergekitty.architecture import get_architecture_info
+from mergekitty.config import MergeConfiguration
+from mergekitty.io.lazy_tensor_loader import LazyTensorLoader, ShardedTensorIndex
+from mergekitty.merge import MergeOptions, run_merge
 
 
 def make_tokenizer(

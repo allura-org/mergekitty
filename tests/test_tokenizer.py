@@ -8,9 +8,9 @@ import torch
 from common import make_picollama, make_tokenizer, run_and_check_merge
 from transformers import LlamaConfig, LlamaTokenizerFast
 
-from mergekit.config import InputModelDefinition, MergeConfiguration
-from mergekit.io import LazyTensorLoader
-from mergekit.tokenizer import TokenizerConfig
+from mergekitty.config import InputModelDefinition, MergeConfiguration
+from mergekitty.io import LazyTensorLoader
+from mergekitty.tokenizer import TokenizerConfig
 
 
 @pytest.fixture(scope="session")

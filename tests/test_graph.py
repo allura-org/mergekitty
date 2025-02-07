@@ -5,9 +5,9 @@ from typing import Any, Dict, Optional
 import networkx
 import pytest
 
-from mergekit.common import ImmutableMap
-from mergekit.task import Task
-from mergekit.executor import SingleThreadedExecutor
+from mergekitty.common import ImmutableMap
+from mergekitty.task import Task
+from mergekitty.executor import SingleThreadedExecutor
 
 EXECUTION_COUNTS: Dict[Task, int] = {}
 
