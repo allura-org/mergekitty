@@ -28,7 +28,7 @@ from mergekit._data import chat_templates
 from mergekit.architecture import ArchitectureInfo, get_architecture_info
 from mergekit.card import generate_card
 from mergekit.config import MergeConfiguration
-from mergekit.graph import Executor
+from mergekit.executor import SingleThreadedExecutor
 from mergekit.io.tasks import LoaderCache
 from mergekit.options import MergeOptions
 from mergekit.plan import MergePlanner
@@ -86,7 +86,7 @@ def run_merge(
         out_model_config=cfg_out,
     ).plan_to_disk(out_path=out_path)
 
-    exec = Executor(
+    exec = SingleThreadedExecutor(
         tasks=targets,
         math_device="cuda" if options.cuda else "cpu",
         storage_device="cuda" if options.low_cpu_memory else "cpu",

@@ -6,7 +6,8 @@ import networkx
 import pytest
 
 from mergekit.common import ImmutableMap
-from mergekit.graph import Executor, Task
+from mergekit.task import Task
+from mergekit.executor import SingleThreadedExecutor
 
 EXECUTION_COUNTS: Dict[Task, int] = {}
 
@@ -61,19 +62,19 @@ class TestExecutorClass:
     def test_executor_initialization(self):
         # Testing initialization with single task
         task = create_mock_task("task1")
-        executor = Executor([task])
+        executor = SingleThreadedExecutor([task])
         assert executor.targets == [task], (
             "Executor did not initialize with correct targets"
         )
 
     def test_executor_empty_list(self):
-        list(Executor([]).run())
+        list(SingleThreadedExecutor([]).run())
 
     def test_executor_scheduling(self):
         # Testing scheduling with dependencies
         task1 = create_mock_task("task1", result=1)
         task2 = create_mock_task("task2", result=2, dependencies={"task1": task1})
-        executor = Executor([task2])
+        executor = SingleThreadedExecutor([task2])
         assert len(executor._make_schedule([task2])) == 2, (
             "Schedule should include two tasks"
         )
@@ -82,7 +83,7 @@ class TestExecutorClass:
         # Testing dependency building
         task1 = create_mock_task("task1")
         task2 = create_mock_task("task2", dependencies={"task1": task1})
-        executor = Executor([task2])
+        executor = SingleThreadedExecutor([task2])
         dependencies = executor._build_dependencies([task2])
         assert task1 in dependencies[task2], "Task1 should be a dependency of Task2"
 
@@ -90,7 +91,7 @@ class TestExecutorClass:
         # Testing execution through the run method
         task1 = create_mock_task("task1", result=10)
         task2 = create_mock_task("task2", result=20, dependencies={"task1": task1})
-        executor = Executor([task2])
+        executor = SingleThreadedExecutor([task2])
         results = list(executor.run())
         assert len(results) == 1 and results[0][1] == 20, (
             "Executor run did not yield correct results"
@@ -99,7 +100,7 @@ class TestExecutorClass:
     def test_executor_execute(self):
         # Testing execute method for side effects
         task1 = create_mock_task("task1", result=10)
-        executor = Executor([task1])
+        executor = SingleThreadedExecutor([task1])
         # No assert needed; we're ensuring no exceptions are raised and method completes
         executor.execute()
 
@@ -108,7 +109,7 @@ class TestExecutorClass:
         task1 = create_mock_task("task1", result=1)
         task2 = create_mock_task("task2", result=2, dependencies={"task1": task1})
         task3 = create_mock_task("task3", result=3, dependencies={"task2": task2})
-        executor = Executor([task3])
+        executor = SingleThreadedExecutor([task3])
 
         schedule = executor._make_schedule([task3])
         assert schedule.index(task1) < schedule.index(task2), (
@@ -132,7 +133,7 @@ class TestExecutorGroupLabel:
         )
 
         # Initialize Executor with the tasks
-        executor = Executor([task4])
+        executor = SingleThreadedExecutor([task4])
 
         # Get the scheduled tasks
         schedule = executor._make_schedule([task4])
@@ -158,7 +159,7 @@ class TestExecutorGroupLabel:
             "task3", result=3, dependencies={"task2": task2}, group_label="group1"
         )
 
-        executor = Executor([task3])
+        executor = SingleThreadedExecutor([task3])
         schedule = executor._make_schedule([task3])
         scheduled_labels = [
             task.group_label() for task in schedule if task.group_label()
@@ -184,7 +185,7 @@ class TestExecutorSingleExecution:
         task2 = create_mock_task("task2", dependencies={"shared": shared_task})
         task3 = create_mock_task("task3", dependencies={"task1": task1, "task2": task2})
 
-        Executor([task3]).execute()
+        SingleThreadedExecutor([task3]).execute()
 
         assert shared_task in EXECUTION_COUNTS, "Dependency not executed"
         assert EXECUTION_COUNTS[shared_task] == 1, (
@@ -203,7 +204,7 @@ class CircularTask(Task):
 class TestExecutorCircularDependency:
     def test_circular_dependency(self):
         with pytest.raises(networkx.NetworkXUnfeasible):
-            Executor([CircularTask()]).execute()
+            SingleThreadedExecutor([CircularTask()]).execute()
 
 
 if __name__ == "__main__":

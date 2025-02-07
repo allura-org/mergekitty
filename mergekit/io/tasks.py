@@ -22,7 +22,7 @@ import torch
 
 from mergekit.architecture import WeightInfo
 from mergekit.common import ImmutableMap, ModelReference, dtype_from_name
-from mergekit.graph import Task
+from mergekit.task import Task
 from mergekit.io.lazy_tensor_loader import LazyTensorLoader
 from mergekit.io.tensor_writer import TensorWriter
 from mergekit.options import MergeOptions

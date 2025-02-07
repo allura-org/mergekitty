@@ -27,7 +27,7 @@ from pydantic import BaseModel
 from typing_extensions import Literal
 
 from mergekit.common import ModelPath, ModelReference
-from mergekit.graph import Task
+from mergekit.task import Task
 
 
 def get_vocab_size(model_path: ModelPath, trust_remote_code: bool) -> Optional[int]:
