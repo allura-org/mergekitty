@@ -64,6 +64,18 @@ Key features of `mergekitty` include:
 
 ## Installation
 
+`mergekitty` is available on PyPI.
+
+Using `uv` to install in a separate tool environment (recommended):
+```sh
+uv tool install mergekitty
+```
+
+Using `pip`:
+```sh
+pip install mergekitty
+```
+
 From source:
 ```sh
 git clone https://github.com/allura-org/mergekitty.git
