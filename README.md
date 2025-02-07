@@ -4,6 +4,8 @@
 
 ## Contents
 
+- [Reasons for the fork](#reasons-for-the-fork)
+- [Breaking changes](#breaking-changes)
 - [Why Merge Models?](#why-merge-models)
 - [Features](#features)
 - [Installation](#installation)
