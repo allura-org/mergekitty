@@ -80,7 +80,7 @@ def fourier_slerp(
         ires.real = nuslerp(weight_b / (weight_a + weight_b), i0, i1)
         del i0, i1
 
-        res.imag = ifft(ires)
+        res.imag = ifft(ires).real
         del ires
 
     res = ifft(res).real
