@@ -194,6 +194,53 @@ class ModelReference(BaseModel, frozen=True):
         return str(self.model)
 
 
+class AdapterReference(BaseModel, frozen=True):
+    adapter: ModelPath
+    override_architecture: Optional[str] = None
+
+    def config(self, trust_remote_code: bool = False) -> PretrainedConfig:
+        res = peft.config.PeftConfig.from_pretrained(
+            self.adapter.path,
+            revision=self.adapter.revision,
+            trust_remote_code=trust_remote_code,
+        )
+        if self.override_architecture:
+            res.architectures = [self.override_architecture]
+        return res
+
+    def tensor_index(self, cache_dir: Optional[str] = None) -> ShardedTensorIndex:
+        path = self.adapter.path
+        if not os.path.exists(path):
+            has_safetensors = any(
+                fn.lower().endswith(".safetensors")
+                for fn in huggingface_hub.list_repo_files(
+                    path, repo_type="model", revision=self.adapter.revision
+                )
+            )
+            patterns = ["tokenizer.model", "*.json"]
+            if has_safetensors:
+                patterns.append("*.safetensors")
+            else:
+                patterns.append("*.bin")
+
+            path = huggingface_hub.snapshot_download(
+                path,
+                revision=self.adapter.revision,
+                cache_dir=cache_dir,
+                allow_patterns=patterns,
+            )
+
+        return ShardedTensorIndex.from_disk(path)
+
+    def lazy_loader(
+        self, cache_dir: Optional[str] = None, lazy_unpickle: bool = True
+    ) -> LazyTensorLoader:
+        return LazyTensorLoader(
+            self.tensor_index(cache_dir),
+            lazy_unpickle=lazy_unpickle,
+        )
+
+
 def dtype_from_name(name: Optional[str]) -> Optional[torch.dtype]:
     if not name:
         return None

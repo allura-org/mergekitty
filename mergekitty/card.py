@@ -199,6 +199,17 @@ def generate_card(
     )
 
 
+def generate_card_merged_lora(
+    base_model_ref: ModelReference,
+    adapter_ref: ModelReference,
+    invocation: str,
+    extended: bool,
+    vocab_size: int,
+    name: str,
+) -> str:
+    pass
+
+
 def generate_card_lora(
     base_model_ref: ModelReference,
     finetuned_model_ref: ModelReference,
