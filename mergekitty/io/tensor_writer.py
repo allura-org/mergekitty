@@ -51,10 +51,12 @@ class TensorWriter:
         self.total_size = 0
 
     def save_tensor(self, name: str, tensor: torch.Tensor, clone: bool = False):
+        print(f"Saving tensor: {name}, shape: {tensor.shape}, dtype: {tensor.dtype}")
         if not tensor.is_contiguous():
             tensor = tensor.contiguous()
 
         tensor_size = tensor.numel() * tensor.element_size()
+        print(f"Tensor size: {tensor_size} bytes ({tensor_size/1024/1024:.2f} MB)")
         if (
             self.current_shard
             and self.current_shard_size + tensor_size > self.max_shard_size
