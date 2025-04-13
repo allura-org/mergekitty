@@ -607,13 +607,13 @@
                 "name": "model.layers.${layer_index}.mlp.experts.63.down_proj.weight"
             },
             {
-                "name": "model.layers.${layer_index}.mlp.experts.64.up_proj.weight"
+                "name": "model.layers.${layer_index}.mlp.experts.0.up_proj.weight"
             },
             {
-                "name": "model.layers.${layer_index}.mlp.experts.64.gate_proj.weight"
+                "name": "model.layers.${layer_index}.mlp.experts.0.gate_proj.weight"
             },
             {
-                "name": "model.layers.${layer_index}.mlp.experts.64.down_proj.weight"
+                "name": "model.layers.${layer_index}.mlp.experts.0.down_proj.weight"
             }
         ]
     },
