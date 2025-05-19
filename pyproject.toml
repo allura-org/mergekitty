@@ -34,7 +34,16 @@ dependencies = [
 requires-python = ">=3.10"
 
 [project.optional-dependencies]
-vllm = ["vllm==0.3.2", "lm_eval[vllm]"]
+dev = [
+    "ruff~=0.9.4",
+    "pre-commit~=4.1.0",
+]
+gradio = [
+    "gradio[oauth]==5.15.0",
+    "gradio_log",
+    "gradio-huggingfacehub-search"
+]
+
 
 [project.urls]
 repository = "https://github.com/allura-org/mergekitty"
@@ -46,12 +55,16 @@ mergekitty-layershuffle = "mergekitty.scripts.layershuffle:main"
 mergekitty-moe = "mergekitty.scripts.moe:main"
 mergekitty-tokensurgeon = "mergekitty.scripts.tokensurgeon:main"
 mergekitty-extract-lora = "mergekitty.scripts.extract_lora:main"
+mergekitty-gui = "mergekitty.scripts.gui:cli_main"
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.envs.default]
 installer = "uv"
-extra-dependencies = [
-    "ruff~=0.9.4",
-    "pre-commit~=4.1.0",
+features = [
+    "dev",
+    "gradio"
 ]
 
 [tool.hatch.envs.default.extra-scripts]
