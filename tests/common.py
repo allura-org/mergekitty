@@ -11,6 +11,8 @@ from transformers import (
     LlamaForCausalLM,
     PreTrainedTokenizerBase,
     LlamaTokenizerFast,
+    Qwen3MoeConfig,
+    Qwen3MoeForCausalLM,
 )
 import tokenizers
 
@@ -99,5 +101,19 @@ def make_picollama(path: str, vocab_size: int = 64):
         num_hidden_layers=2,
     )
     model = LlamaForCausalLM(cfg)
+    model.save_pretrained(path, safe_serialization=True)
+    return str(path)
+
+
+def make_qwen3moe_picollama(path: str, vocab_size: int = 64):
+    cfg = Qwen3MoeConfig(
+        vocab_size=vocab_size,
+        hidden_size=32,
+        intermediate_size=48,
+        num_hidden_layers=2,
+        num_experts=2,
+        num_experts_per_tok=2,
+    )
+    model = Qwen3MoeForCausalLM(cfg)
     model.save_pretrained(path, safe_serialization=True)
     return str(path)

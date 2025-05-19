@@ -17,7 +17,7 @@
 import importlib.resources
 import string
 from abc import ABC, abstractmethod
-from typing import ClassVar, Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field
 from transformers import PretrainedConfig
@@ -59,6 +59,7 @@ class WeightInfo(BaseModel, frozen=True):
     force_dtype: Optional[str] = None
     head_split: Literal[None, "input", "output"] = None
     is_kq: Optional[bool] = False
+    is_sparse: Optional[bool] = False
 
 
 class ProceduralSpaceInfo(BaseModel, frozen=True):
@@ -110,9 +111,17 @@ class ArchitectureInfo(ABC):
         """Key in config that represents number of layers"""
         return "num_hidden_layers"
 
+    def num_experts_config_key(self) -> str:
+        """Key in config that represents number of experts"""
+        return "num_experts"
+
     def num_layers(self, config: PretrainedConfig) -> int:
         """Return the number of layers in a model."""
         return getattr(config, self.num_layers_config_key())
+
+    def num_experts(self, config: PretrainedConfig) -> int:
+        """Return the number of experts in a model, or None if not applicable."""
+        return getattr(config, self.num_experts_config_key(), None)
 
     def all_weights(self, config: PretrainedConfig) -> List[WeightInfo]:
         """Return all weights associated with a model."""
@@ -174,6 +183,7 @@ class JSONArchitectureDefinition(BaseModel, frozen=True):
     post_weights: List[WeightInfo]
     procedural_spaces: Optional[List[ProceduralSpaceInfo]] = None
     num_layers_config_key: Optional[str] = None
+    num_experts_config_key: Optional[str] = None
 
 
 class TemplateWithArithmetic(string.Template):
@@ -181,7 +191,11 @@ class TemplateWithArithmetic(string.Template):
 
 
 def _template_substitution(
-    template: str, num_layers: int, layer_idx: Optional[int] = None
+    template: str,
+    num_layers: int,
+    layer_idx: Optional[int] = None,
+    num_experts: Optional[int] = None,
+    expert_idx: Optional[int] = None,
 ) -> str:
     if "{" not in template:
         return template
@@ -201,6 +215,21 @@ def _template_substitution(
             }
         )
 
+    if num_experts is not None:
+        substitutions.update(
+            {
+                "expert_index": num_experts,
+                "expert_index+1": num_experts + 1,
+                "expert_index-1": num_experts - 1,
+            }
+        )
+        if expert_idx is not None:
+            substitutions.update(
+                {
+                    "expert_index": expert_idx,
+                }
+            )
+
     return TemplateWithArithmetic(template).substitute(substitutions)
 
 
@@ -212,19 +241,23 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
         item: Union[WeightInfo, ProceduralSpaceInfo],
         config: PretrainedConfig,
         layer_idx: Optional[int] = None,
+        expert_idx: Optional[int] = None,
     ) -> Union[WeightInfo, ProceduralSpaceInfo]:
         num_layers = self.num_layers(config)
+        num_experts = self.num_experts(config)
 
         obj_dict = item.model_dump(mode="json", exclude_unset=True)
         for key in obj_dict:
             if isinstance(obj_dict[key], str):
                 obj_dict[key] = _template_substitution(
-                    obj_dict[key], num_layers, layer_idx
+                    obj_dict[key], num_layers, layer_idx, num_experts, expert_idx
                 )
             elif isinstance(obj_dict[key], list):
                 obj_dict[key] = [
                     (
-                        _template_substitution(s, num_layers, layer_idx)
+                        _template_substitution(
+                            s, num_layers, layer_idx, num_experts, expert_idx
+                        )
                         if isinstance(s, str)
                         else s
                     )
@@ -243,10 +276,28 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
     def layer_weights(
         self, index: int, config: PretrainedConfig
     ) -> Optional[List[WeightInfo]]:
-        return [
-            self._substitute(wi, config=config, layer_idx=index)
-            for wi in self.definition.layer_templates.weights
-        ]
+        if self.definition.num_experts_config_key is None:
+            return [
+                self._substitute(wi, config=config, layer_idx=index)
+                for wi in self.definition.layer_templates.weights
+            ]
+        else:
+            expert_weights = [
+                wi for wi in self.definition.layer_templates.weights if wi.is_sparse
+            ]
+            regular_weights = [
+                wi for wi in self.definition.layer_templates.weights if not wi.is_sparse
+            ]
+            return [
+                self._substitute(wi, config=config, layer_idx=index)
+                for wi in regular_weights
+            ] + [
+                self._substitute(
+                    wi, config=config, layer_idx=index, expert_idx=expert_idx
+                )
+                for wi in expert_weights
+                for expert_idx in range(self.num_experts(config))
+            ]
 
     def post_weights(self, config: PretrainedConfig) -> List[WeightInfo]:
         return [
@@ -284,54 +335,6 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
         return self.definition.num_layers_config_key
 
 
-class MixtralTensorNames(ArchitectureInfo, BaseModel):
-    ARCHITECTURE_NAME: ClassVar[str] = "MixtralForCausalLM"
-    num_local_experts: int
-
-    def name(self) -> str:
-        return "mixtral"
-
-    @classmethod
-    def from_config(cls, config: PretrainedConfig):
-        return MixtralTensorNames(num_local_experts=config.num_local_experts)
-
-    def pre_weights(self, config: PretrainedConfig) -> List[WeightInfo]:
-        return MISTRAL_INFO.pre_weights(config)
-
-    def post_weights(self, config: PretrainedConfig) -> List[WeightInfo]:
-        return MISTRAL_INFO.post_weights(config)
-
-    def num_layers_config_key(self) -> str:
-        return MISTRAL_INFO.num_layers_config_key()
-
-    def layer_weights(
-        self, index: int, config: PretrainedConfig
-    ) -> Optional[List[WeightInfo]]:
-        num_experts = self.num_local_experts
-        prefix = f"model.layers.{index}"
-        tensor_names = []
-        for expert_idx in range(num_experts):
-            for param in ("w1", "w2", "w3"):
-                tensor_names.append(
-                    prefix + f".block_sparse_moe.experts.{expert_idx}.{param}.weight"
-                )
-        tensor_names.append(prefix + ".block_sparse_moe.gate.weight")
-        res = []
-        for name in tensor_names:
-            res.append(WeightInfo(name=name))
-        for weight_info in MISTRAL_INFO.layer_weights(index, config):
-            if ".mlp." in weight_info.name:
-                continue
-            res.append(weight_info)
-        return res
-
-    def sliceable(self) -> bool:
-        return True
-
-    def has_defined_spaces(self) -> bool:
-        return False
-
-
 def _load_json_arch(name: str) -> JsonArchitectureInfo:
     text = importlib.resources.read_text(mergekitty._data.architectures, name)
     return JsonArchitectureInfo(
@@ -365,9 +368,6 @@ def get_architecture_info(config: PretrainedConfig) -> ArchitectureInfo:
         raise RuntimeError("More than one architecture in config?")
 
     arch_name = config.architectures[0]
-
-    if arch_name == MixtralTensorNames.ARCHITECTURE_NAME:
-        return MixtralTensorNames.from_config(config)
 
     if arch_name not in NAME_TO_ARCH:
         raise RuntimeError(f"Unsupported architecture {arch_name}")
