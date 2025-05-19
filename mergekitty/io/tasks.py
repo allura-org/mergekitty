@@ -21,7 +21,12 @@ from typing import Dict, Optional, Tuple
 import torch
 
 from mergekitty.architecture import WeightInfo
-from mergekitty.common import ImmutableMap, ModelReference, dtype_from_name
+from mergekitty.common import (
+    AdapterReference,
+    ImmutableMap,
+    ModelReference,
+    dtype_from_name,
+)
 from mergekitty.task import Task
 from mergekitty.io.lazy_tensor_loader import LazyTensorLoader
 from mergekitty.io.tensor_writer import TensorWriter
@@ -77,7 +82,7 @@ def _normalized_shard_name(path: str) -> int:
 
 
 class LoadTensor(Task[Optional[torch.Tensor]]):
-    model: ModelReference
+    model: ModelReference | AdapterReference
     tensor: str
     dtype: Optional[str] = None
     device: Optional[str] = None

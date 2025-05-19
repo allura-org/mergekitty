@@ -46,6 +46,7 @@ mergekitty-layershuffle = "mergekitty.scripts.layershuffle:main"
 mergekitty-moe = "mergekitty.scripts.moe:main"
 mergekitty-tokensurgeon = "mergekitty.scripts.tokensurgeon:main"
 mergekitty-extract-lora = "mergekitty.scripts.extract_lora:main"
+mergekitty-merge-lora = "mergekitty.scripts.merge_lora:main"
 
 [tool.hatch.envs.default]
 installer = "uv"
