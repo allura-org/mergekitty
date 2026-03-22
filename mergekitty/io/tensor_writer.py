@@ -17,8 +17,9 @@
 import json
 import logging
 import os
+import queue
 import threading
-from typing import Dict
+from typing import Dict, Optional, Tuple
 
 import safetensors
 import torch
@@ -33,6 +34,10 @@ class TensorWriter:
     current_shard_size: int
     total_size: int
     safe_serialization: bool
+    _pending_writes: "queue.Queue[Tuple[str, Dict[str, torch.Tensor]] | object]"
+    _writer_thread: threading.Thread
+    _writer_error: Optional[BaseException]
+    _STOP_SENTINEL = object()
 
     def __init__(
         self,
@@ -51,9 +56,19 @@ class TensorWriter:
         self.current_shard_size = 0
         self.total_size = 0
         self._lock = threading.RLock()
+        self._pending_writes = queue.Queue(maxsize=1)
+        self._writer_error = None
+        self._writer_thread = threading.Thread(
+            target=self._writer_loop,
+            name="mergekitty-writer",
+            daemon=True,
+        )
+        self._writer_thread.start()
 
     def save_tensor(self, name: str, tensor: torch.Tensor, clone: bool = False):
+        shard_to_write = None
         with self._lock:
+            self._raise_writer_error_locked()
             if not tensor.is_contiguous():
                 tensor = tensor.contiguous()
 
@@ -62,7 +77,7 @@ class TensorWriter:
                 self.current_shard
                 and self.current_shard_size + tensor_size > self.max_shard_size
             ):
-                self.flush_current_shard()
+                shard_to_write = self._rotate_shard_locked()
 
             if clone:
                 tensor = tensor.clone()
@@ -70,33 +85,24 @@ class TensorWriter:
             self.current_shard[name] = tensor
             self.total_size += tensor_size
             self.current_shard_size += tensor_size
+        if shard_to_write is not None:
+            self._enqueue_write(shard_to_write)
 
     def flush_current_shard(self):
+        shard_to_write = None
         with self._lock:
-            if not self.current_shard:
-                return
-
-            logging.info(f"Writing shard #{self.shards_written + 1} to disk")
-
-            prefix, extension = self._get_name_components()
-            shard_name = f"{prefix}-{self.shards_written + 1}.{extension}"
-
-            for key in self.current_shard:
-                self.weight_map[key] = shard_name
-
-            shard_path = os.path.join(self.out_path, shard_name)
-            if self.safe_serialization:
-                self._save_st(shard_path)
-            else:
-                torch.save(self.current_shard, shard_path)
-
-            self.current_shard = {}
-            self.current_shard_size = 0
-            self.shards_written = self.shards_written + 1
+            self._raise_writer_error_locked()
+            shard_to_write = self._rotate_shard_locked()
+        if shard_to_write is not None:
+            self._enqueue_write(shard_to_write)
 
     def finalize(self):
+        self.flush_current_shard()
+        self._enqueue_write(self._STOP_SENTINEL)
+        self._writer_thread.join()
+
         with self._lock:
-            self.flush_current_shard()
+            self._raise_writer_error_locked()
 
             logging.info("Finalizing shard names")
 
@@ -140,10 +146,65 @@ class TensorWriter:
             return "model", "safetensors"
         return "pytorch_model", "bin"
 
-    def _save_st(self, shard_path: str):
+    def _writer_loop(self):
+        while True:
+            item = self._pending_writes.get()
+            try:
+                if item is self._STOP_SENTINEL:
+                    return
+
+                shard_name, shard = item
+                logging.info("Writing shard %s to disk", shard_name)
+                self._write_shard_file(shard_name, shard)
+            except BaseException as exc:  # pragma: no cover - surfaced via public API
+                with self._lock:
+                    if self._writer_error is None:
+                        self._writer_error = exc
+                return
+            finally:
+                self._pending_writes.task_done()
+
+    def _enqueue_write(self, item: Tuple[str, Dict[str, torch.Tensor]] | object):
+        while True:
+            with self._lock:
+                self._raise_writer_error_locked()
+            try:
+                self._pending_writes.put(item, timeout=0.1)
+                return
+            except queue.Full:
+                continue
+
+    def _raise_writer_error_locked(self):
+        if self._writer_error is not None:
+            raise RuntimeError("Background shard write failed") from self._writer_error
+
+    def _rotate_shard_locked(self) -> Optional[Tuple[str, Dict[str, torch.Tensor]]]:
+        if not self.current_shard:
+            return None
+
+        prefix, extension = self._get_name_components()
+        shard_name = f"{prefix}-{self.shards_written + 1}.{extension}"
+        shard = self.current_shard
+
+        for key in shard:
+            self.weight_map[key] = shard_name
+
+        self.current_shard = {}
+        self.current_shard_size = 0
+        self.shards_written = self.shards_written + 1
+        return shard_name, shard
+
+    def _write_shard_file(self, shard_name: str, shard: Dict[str, torch.Tensor]):
+        shard_path = os.path.join(self.out_path, shard_name)
+        if self.safe_serialization:
+            self._save_st(shard_path, shard)
+        else:
+            torch.save(shard, shard_path)
+
+    def _save_st(self, shard_path: str, shard: Dict[str, torch.Tensor]):
         def _do_save():
             safetensors.torch.save_file(
-                self.current_shard,
+                shard,
                 shard_path,
                 metadata={"format": "pt"},
             )
@@ -160,9 +221,7 @@ class TensorWriter:
                     "Your model has duplicated tensors but the --clone-tensors "
                     "flag is not set."
                 )
-                self.current_shard = {
-                    key: self.current_shard[key].clone() for key in self.current_shard
-                }
+                shard = {key: shard[key].clone() for key in shard}
                 _do_save()
             else:
                 raise
