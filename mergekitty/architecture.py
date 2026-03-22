@@ -196,6 +196,8 @@ class JSONWeightTemplateGroup(BaseModel, frozen=True):
 class JSONArchitectureDefinition(BaseModel, frozen=True):
     expected_model_type: str = Field(alias="model_type")
     architectures: List[str]
+    match_model_type: Optional[str] = None
+    match_model_type_config_key: Optional[str] = None
     pre_weights: List[WeightInfo]
     pre_weight_templates: Optional[List[JSONWeightTemplateGroup]] = None
     layer_templates: JSONLayerTemplates
@@ -204,6 +206,16 @@ class JSONArchitectureDefinition(BaseModel, frozen=True):
     procedural_spaces: Optional[List[ProceduralSpaceInfo]] = None
     num_layers_config_key: Optional[str] = None
     num_experts_config_key: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_match_model_type_fields(self):
+        if (self.match_model_type is None) != (
+            self.match_model_type_config_key is None
+        ):
+            raise ValueError(
+                "match_model_type and match_model_type_config_key must be provided together"
+            )
+        return self
 
 
 class TemplateWithArithmetic(string.Template):
@@ -277,6 +289,22 @@ def set_config_value(
 
 class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
     definition: JSONArchitectureDefinition
+
+    def matches_config(self, config: PretrainedConfig) -> bool:
+        if self.definition.expected_model_type != config.model_type:
+            return False
+
+        if self.definition.match_model_type_config_key is None:
+            return True
+
+        try:
+            actual_match_model_type = get_config_value(
+                config, self.definition.match_model_type_config_key
+            )
+        except (AttributeError, KeyError):
+            return False
+
+        return actual_match_model_type == self.definition.match_model_type
 
     def _substitute(
         self,
@@ -482,12 +510,13 @@ def get_architecture_info(config: PretrainedConfig) -> ArchitectureInfo:
         raise RuntimeError(f"Unsupported architecture {arch_name}")
 
     candidates = list(NAME_TO_ARCH[arch_name])
-    if len(candidates) == 1:
-        return candidates[0]
-
-    for c in candidates:
-        if c.definition.expected_model_type == config.model_type:
-            return c
+    matches = [candidate for candidate in candidates if candidate.matches_config(config)]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise RuntimeError(
+            f"Ambiguous model_type {config.model_type} for architecture {arch_name}"
+        )
 
     raise RuntimeError(
         f"Unsupported model_type {config.model_type} for architecture {arch_name}"

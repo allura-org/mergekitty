@@ -1,4 +1,11 @@
-from common import make_qwen2vl_picollama, make_tokenizer, run_and_check_merge
+from types import SimpleNamespace
+
+from common import (
+    make_mistral3_picollama,
+    make_qwen2vl_picollama,
+    make_tokenizer,
+    run_and_check_merge,
+)
 from transformers import AutoConfig, Qwen2Config, Qwen2ForCausalLM
 
 from mergekitty.architecture import get_architecture_info
@@ -55,6 +62,76 @@ class TestQwen2VLArchitecture:
             assert out_cfg.text_config.num_hidden_layers == 4
 
         run_and_check_merge(config, validate=_check_config_layers)
+
+
+class TestMistral3Architecture:
+    def test_mistral3_architecture_info_expands_vision_and_text_weights(
+        self, tmp_path
+    ):
+        model_path = make_mistral3_picollama(tmp_path / "mistral3")
+        make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
+
+        cfg = AutoConfig.from_pretrained(model_path)
+        arch_info = get_architecture_info(cfg)
+        weights = arch_info.all_weights(cfg)
+        names = {weight.name for weight in weights}
+
+        assert arch_info.name() == "mistral3"
+        assert arch_info.definition.match_model_type == "mistral"
+        assert arch_info.num_layers(cfg) == 2
+        assert len(weights) == 47
+        assert "vision_tower.transformer.layers.1.attention.q_proj.weight" in names
+        assert "multi_modal_projector.patch_merger.merging_layer.weight" in names
+        assert "language_model.model.layers.1.self_attn.q_proj.weight" in names
+        assert "language_model.model.norm.weight" in names
+        assert "language_model.lm_head.weight" in names
+
+    def test_mistral3_passthrough_stack_updates_nested_text_layer_count(
+        self, tmp_path
+    ):
+        model_path = make_mistral3_picollama(tmp_path / "mistral3")
+        make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
+
+        config = MergeConfiguration(
+            merge_method="passthrough",
+            slices=[
+                OutputSliceDefinition(
+                    sources=[
+                        InputSliceDefinition(model=model_path, layer_range=[0, 2]),
+                    ]
+                ),
+                OutputSliceDefinition(
+                    sources=[
+                        InputSliceDefinition(model=model_path, layer_range=[0, 2]),
+                    ]
+                ),
+            ],
+            dtype="bfloat16",
+        )
+
+        def _check_config_layers(path: str):
+            out_cfg = AutoConfig.from_pretrained(path)
+            assert out_cfg.text_config.num_hidden_layers == 4
+
+        run_and_check_merge(config, validate=_check_config_layers)
+
+    def test_mistral3_architecture_info_can_match_nested_text_model_type(self):
+        cfg = SimpleNamespace(
+            architectures=["Mistral3ForConditionalGeneration"],
+            model_type="mistral3",
+            text_config=SimpleNamespace(model_type="ministral3", num_hidden_layers=2),
+            vision_config=SimpleNamespace(num_hidden_layers=2),
+        )
+
+        arch_info = get_architecture_info(cfg)
+        weights = arch_info.all_weights(cfg)
+        names = {weight.name for weight in weights}
+
+        assert arch_info.name() == "mistral3"
+        assert arch_info.definition.match_model_type == "ministral3"
+        assert arch_info.num_layers(cfg) == 2
+        assert "vision_tower.transformer.layers.1.attention.q_proj.weight" in names
+        assert "language_model.model.layers.1.self_attn.q_proj.weight" in names
 
 
 class TestSliceConfigMetadata:

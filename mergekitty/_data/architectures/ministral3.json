@@ -1,0 +1,157 @@
+{
+    "model_type": "mistral3",
+    "architectures": [
+        "Mistral3ForConditionalGeneration"
+    ],
+    "match_model_type": "ministral3",
+    "match_model_type_config_key": "text_config.model_type",
+    "pre_weights": [
+        {
+            "name": "vision_tower.patch_conv.weight"
+        },
+        {
+            "name": "vision_tower.ln_pre.weight"
+        },
+        {
+            "name": "multi_modal_projector.norm.weight"
+        },
+        {
+            "name": "multi_modal_projector.patch_merger.merging_layer.weight"
+        },
+        {
+            "name": "multi_modal_projector.linear_1.weight"
+        },
+        {
+            "name": "multi_modal_projector.linear_1.bias",
+            "optional": true
+        },
+        {
+            "name": "multi_modal_projector.linear_2.weight"
+        },
+        {
+            "name": "multi_modal_projector.linear_2.bias",
+            "optional": true
+        },
+        {
+            "name": "language_model.model.embed_tokens.weight",
+            "is_embed": true,
+            "output_space": "h_0"
+        }
+    ],
+    "pre_weight_templates": [
+        {
+            "count_config_key": "vision_config.num_hidden_layers",
+            "index_name": "vision_layer_index",
+            "weights": [
+                {
+                    "name": "vision_tower.transformer.layers.${vision_layer_index}.attention_norm.weight"
+                },
+                {
+                    "name": "vision_tower.transformer.layers.${vision_layer_index}.attention.q_proj.weight"
+                },
+                {
+                    "name": "vision_tower.transformer.layers.${vision_layer_index}.attention.k_proj.weight"
+                },
+                {
+                    "name": "vision_tower.transformer.layers.${vision_layer_index}.attention.v_proj.weight"
+                },
+                {
+                    "name": "vision_tower.transformer.layers.${vision_layer_index}.attention.o_proj.weight"
+                },
+                {
+                    "name": "vision_tower.transformer.layers.${vision_layer_index}.ffn_norm.weight"
+                },
+                {
+                    "name": "vision_tower.transformer.layers.${vision_layer_index}.feed_forward.gate_proj.weight"
+                },
+                {
+                    "name": "vision_tower.transformer.layers.${vision_layer_index}.feed_forward.up_proj.weight"
+                },
+                {
+                    "name": "vision_tower.transformer.layers.${vision_layer_index}.feed_forward.down_proj.weight"
+                }
+            ]
+        }
+    ],
+    "num_layers_config_key": "text_config.num_hidden_layers",
+    "layer_templates": {
+        "weights": [
+            {
+                "name": "language_model.model.layers.${layer_index}.input_layernorm.weight",
+                "input_space": "h_${layer_index}"
+            },
+            {
+                "name": "language_model.model.layers.${layer_index}.self_attn.q_proj.weight",
+                "input_space": "h_${layer_index}",
+                "output_space": "attn_qk_${layer_index}"
+            },
+            {
+                "name": "language_model.model.layers.${layer_index}.self_attn.k_proj.weight",
+                "input_space": "h_${layer_index}",
+                "output_space": "attn_qk_${layer_index}"
+            },
+            {
+                "name": "language_model.model.layers.${layer_index}.self_attn.v_proj.weight",
+                "input_space": "h_${layer_index}",
+                "output_space": "attn_v_${layer_index}"
+            },
+            {
+                "name": "language_model.model.layers.${layer_index}.self_attn.o_proj.weight",
+                "input_space": "attn_v_${layer_index}",
+                "output_space": "post_attn_${layer_index}"
+            },
+            {
+                "name": "language_model.model.layers.${layer_index}.post_attention_layernorm.weight",
+                "input_space": "h_a_${layer_index}"
+            },
+            {
+                "name": "language_model.model.layers.${layer_index}.mlp.up_proj.weight",
+                "input_space": "h_a_${layer_index}",
+                "output_space": "up_${layer_index}"
+            },
+            {
+                "name": "language_model.model.layers.${layer_index}.mlp.gate_proj.weight",
+                "input_space": "h_a_${layer_index}",
+                "output_space": "up_${layer_index}"
+            },
+            {
+                "name": "language_model.model.layers.${layer_index}.mlp.down_proj.weight",
+                "input_space": "up_${layer_index}",
+                "output_space": "post_mlp_${layer_index}"
+            }
+        ],
+        "procedural_spaces": [
+            {
+                "name": "h_a_${layer_index}",
+                "type": "residual",
+                "inputs": [
+                    "h_${layer_index}",
+                    "post_attn_${layer_index}"
+                ]
+            },
+            {
+                "name": "h_${layer_index+1}",
+                "type": "residual",
+                "inputs": [
+                    "h_a_${layer_index}",
+                    "post_mlp_${layer_index}"
+                ]
+            }
+        ]
+    },
+    "post_weights": [
+        {
+            "name": "language_model.model.norm.weight",
+            "input_space": "h_${num_layers}"
+        },
+        {
+            "name": "language_model.lm_head.weight",
+            "input_space": "h_${num_layers}",
+            "is_embed": true,
+            "optional": true,
+            "tied_names": [
+                "language_model.model.embed_tokens.weight"
+            ]
+        }
+    ]
+}
