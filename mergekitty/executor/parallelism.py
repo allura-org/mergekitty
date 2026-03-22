@@ -3,6 +3,7 @@
 
 import heapq
 import os
+import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
 from typing import Any, Dict, Iterator, List, Optional, Set, Tuple
 
@@ -117,6 +118,7 @@ class ParallelismExecutor(ExecutorBase):
         def prepare_arguments(
             task: Task, execution_device: torch.device
         ) -> Dict[str, Any]:
+            prepare_start = time.perf_counter()
             arguments = {}
             for name, dep in task.arguments().items():
                 value = values[dep]
@@ -128,6 +130,11 @@ class ParallelismExecutor(ExecutorBase):
                 remaining_consumers[dep] -= 1
                 maybe_evict(dep)
 
+            self._log_task_phase(
+                task,
+                "prepare",
+                time.perf_counter() - prepare_start,
+            )
             return arguments
 
         def submit_ready_tasks():
@@ -209,5 +216,11 @@ class ParallelismExecutor(ExecutorBase):
         if task.uses_accelerator() and execution_device.type == "cuda":
             torch.cuda.set_device(execution_device)
 
+        execute_start = time.perf_counter()
         result = task.execute(**arguments)
-        return self._prepare_result(result, execution_device)
+        self._log_task_phase(task, "execute", time.perf_counter() - execute_start)
+
+        store_start = time.perf_counter()
+        prepared = self._prepare_result(result, execution_device)
+        self._log_task_phase(task, "store", time.perf_counter() - store_start)
+        return prepared

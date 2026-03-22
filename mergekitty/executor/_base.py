@@ -1,6 +1,8 @@
 # Partly Copyright (C) 2025 Arcee AI
 # Partly Copyright (C) 2025-2026 Allura-org
 
+import logging
+import os
 from collections.abc import Mapping
 from typing import Any, Dict, List, Set, Union
 
@@ -19,6 +21,8 @@ class ExecutorBase:
     schedule: List[Task]
     dependencies: Dict[Task, Set[Task]]
     dependents: Dict[Task, Set[Task]]
+    _task_timing_mode: str
+    _slow_task_threshold_seconds: float
 
     def __init__(
         self,
@@ -28,6 +32,15 @@ class ExecutorBase:
     ):
         self.math_device = torch.device(math_device)
         self.storage_device = torch.device(storage_device)
+        self._task_timing_mode = (
+            os.environ.get("MERGEKITTY_TASK_TIMINGS", "").strip().lower()
+        )
+        try:
+            self._slow_task_threshold_seconds = float(
+                os.environ.get("MERGEKITTY_SLOW_TASK_SECONDS", "5")
+            )
+        except ValueError:
+            self._slow_task_threshold_seconds = 5.0
         self.schedule = self._make_schedule(tasks)
         self.targets = tasks
         self.dependents = self._build_dependents(self.dependencies)
@@ -116,3 +129,33 @@ class ExecutorBase:
         if isinstance(result, torch.Tensor) and result.device != storage_device:
             return result.to(storage_device)
         return result
+
+    def _task_label(self, task: Task) -> str:
+        label = type(task).__name__
+        for attr_name in ("tensor_name", "tensor", "name"):
+            value = getattr(task, attr_name, None)
+            if value:
+                return f"{label}({value})"
+
+        weight_info = getattr(task, "weight_info", None)
+        if weight_info is not None and getattr(weight_info, "name", None):
+            return f"{label}({weight_info.name})"
+
+        return label
+
+    def _log_task_phase(self, task: Task, phase: str, duration_seconds: float) -> None:
+        if not self._task_timing_mode:
+            return
+
+        if (
+            self._task_timing_mode != "all"
+            and duration_seconds < self._slow_task_threshold_seconds
+        ):
+            return
+
+        logging.info(
+            "Task %s %s took %.3fs",
+            self._task_label(task),
+            phase,
+            duration_seconds,
+        )

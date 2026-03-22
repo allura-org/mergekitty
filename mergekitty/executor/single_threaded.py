@@ -1,8 +1,10 @@
 # Partly Copyright (C) 2025 Arcee AI
 # Partly Copyright (C) 2025-2026 Allura-org
 
-import torch
 from typing import Any, Dict, Iterator, List, Set, Tuple
+import time
+
+import torch
 
 import tqdm
 
@@ -76,6 +78,7 @@ class SingleThreadedExecutor(ExecutorBase):
         ):
             use_math_device = task.uses_accelerator()
 
+            prep_start = time.perf_counter()
             arguments = {}
             for name, dep in task.arguments().items():
                 value = values[dep]
@@ -97,13 +100,21 @@ class SingleThreadedExecutor(ExecutorBase):
 
                 arguments[name] = value
                 del value
+            self._log_task_phase(task, "prepare", time.perf_counter() - prep_start)
 
+            execute_start = time.perf_counter()
+            result = task.execute(**arguments)
+            self._log_task_phase(task, "execute", time.perf_counter() - execute_start)
+
+            store_start = time.perf_counter()
             res = self._prepare_result(
-                task.execute(**arguments),
+                result,
                 execution_device=self.math_device
                 if use_math_device
                 else torch.device("cpu"),
             )
+            self._log_task_phase(task, "store", time.perf_counter() - store_start)
+            del result
             del arguments
 
             values[task] = res

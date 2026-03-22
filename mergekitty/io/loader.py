@@ -57,20 +57,32 @@ class LazyPickleLoader(TensorLoader):
     """Loader for pytorch files using a custom unpickler and vigorous monkeypatching."""
 
     zip_reader: TorchArchiveReader
-    index: Dict[str, DeferredLoad]
+    index: Dict[str, DeferredLoad | torch.Tensor]
     device: Optional[str] = None
 
     def __init__(self, path: str, device: Optional[str] = None):
         self.zip_reader = TorchArchiveReader(path)
         self.device = device
         with torch_lazy_load():
-            self.index = torch.load(path)
+            # Our custom unpickler relies on the legacy pickle path rather than
+            # torch.load's eager weights-only loader.
+            self.index = torch.load(path, weights_only=False)
 
     def get_tensor(self, key: str) -> torch.Tensor:
         if key not in self.index:
             raise KeyError(key)
 
-        return self.index[key].execute(self.zip_reader, map_location=self.device)
+        value = self.index[key]
+        if isinstance(value, DeferredLoad):
+            return value.execute(self.zip_reader, map_location=self.device)
+        if isinstance(value, torch.Tensor):
+            if self.device is not None and value.device != torch.device(self.device):
+                return value.to(self.device)
+            return value
+
+        raise TypeError(
+            f"Unexpected lazy-unpickle entry type for {key}: {type(value).__name__}"
+        )
 
     def keys(self) -> Sequence[str]:
         return self.index.keys()
