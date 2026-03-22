@@ -16,6 +16,7 @@
 
 import os
 import re
+import threading
 from typing import Dict, Optional, Tuple
 
 import torch
@@ -39,6 +40,7 @@ class LoaderCache:
     hf_cache_dir: Optional[str] = None
     lazy_unpickle: bool = False
     trust_remote_code: bool = False
+    _lock = threading.Lock()
 
     # singleton instance
     _instance: Optional["LoaderCache"] = None
@@ -49,31 +51,35 @@ class LoaderCache:
         return cls._instance
 
     def get(self, model: ModelReference | AdapterReference) -> LazyTensorLoader:
-        if model not in self.loaders:
-            if isinstance(model, ModelReference):
-                merged = model.merged(
-                    cache_dir=self.lora_cache_dir,
-                    trust_remote_code=self.trust_remote_code,
-                )
-                loader = merged.lazy_loader(
-                    cache_dir=self.hf_cache_dir, lazy_unpickle=self.lazy_unpickle
-                )
-            else:
-                loader = model.lazy_loader(
-                    cache_dir=self.hf_cache_dir, lazy_unpickle=self.lazy_unpickle
-                )
-            self.loaders[model] = loader
-        return self.loaders[model]
+        with self._lock:
+            if model not in self.loaders:
+                if isinstance(model, ModelReference):
+                    merged = model.merged(
+                        cache_dir=self.lora_cache_dir,
+                        trust_remote_code=self.trust_remote_code,
+                    )
+                    loader = merged.lazy_loader(
+                        cache_dir=self.hf_cache_dir, lazy_unpickle=self.lazy_unpickle
+                    )
+                else:
+                    loader = model.lazy_loader(
+                        cache_dir=self.hf_cache_dir, lazy_unpickle=self.lazy_unpickle
+                    )
+                self.loaders[model] = loader
+            return self.loaders[model]
 
     def flush_all(self):
-        for loader in self.loaders.values():
+        with self._lock:
+            loaders = list(self.loaders.values())
+        for loader in loaders:
             loader.flush()
 
     def setup(self, options: MergeOptions):
-        self.lora_cache_dir = options.lora_merge_cache
-        self.hf_cache_dir = options.transformers_cache
-        self.lazy_unpickle = options.lazy_unpickle
-        self.trust_remote_code = options.trust_remote_code
+        with self._lock:
+            self.lora_cache_dir = options.lora_merge_cache
+            self.hf_cache_dir = options.transformers_cache
+            self.lazy_unpickle = options.lazy_unpickle
+            self.trust_remote_code = options.trust_remote_code
 
 
 shard_name_re = re.compile(r"model\-([0-9]+)-of-([0-9]+)")

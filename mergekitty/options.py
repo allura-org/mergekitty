@@ -15,6 +15,7 @@
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
 import functools
+import os
 import typing
 from typing import Any, Callable, Optional, Union
 
@@ -41,6 +42,7 @@ class MergeOptions(BaseModel):
     safe_serialization: bool = True
     quiet: bool = False
     read_to_gpu: bool = False
+    executor: str = os.environ.get("MERGEKITTY_EXECUTOR", "single")
 
 
 OPTION_HELP = {
@@ -59,6 +61,7 @@ OPTION_HELP = {
     "safe_serialization": "Save output in safetensors. Do this, don't poison the world with more pickled models.",
     "quiet": "Suppress progress bars and other non-essential output",
     "read_to_gpu": "Read model weights directly to GPU",
+    "executor": "Executor implementation to use (single or parallel)",
 }
 
 

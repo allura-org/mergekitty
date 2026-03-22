@@ -33,7 +33,7 @@ from mergekitty.architecture import (
 )
 from mergekitty.card import generate_card
 from mergekitty.config import MergeConfiguration, OutputSliceDefinition
-from mergekitty.executor import SingleThreadedExecutor
+from mergekitty.executor import build_executor
 from mergekitty.io.tasks import LoaderCache
 from mergekitty.options import MergeOptions
 from mergekitty.plan import MergePlanner
@@ -91,10 +91,11 @@ def run_merge(
         out_model_config=cfg_out,
     ).plan_to_disk(out_path=out_path)
 
-    exec = SingleThreadedExecutor(
+    exec = build_executor(
         tasks=targets,
         math_device="cuda" if options.cuda else "cpu",
         storage_device="cuda" if options.low_cpu_memory else "cpu",
+        executor=options.executor,
     )
 
     tokenizer = None

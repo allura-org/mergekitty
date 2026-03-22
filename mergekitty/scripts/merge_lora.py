@@ -25,7 +25,7 @@ from mergekitty.architecture import WeightInfo, get_architecture_info
 from mergekitty.card import generate_card_merged_lora
 from mergekitty.common import AdapterReference, ModelPath, ModelReference
 from mergekitty.custom_task import MergeLoraTask
-from mergekitty.executor import SingleThreadedExecutor
+from mergekitty.executor import build_executor
 from mergekitty.io.tasks import (
     FinalizeModel,
     LoadTensor,
@@ -455,10 +455,11 @@ def run_merge_lora(
         options=merge_options,
     )
 
-    exec = SingleThreadedExecutor(
+    exec = build_executor(
         tasks=plan.tasks,
         math_device="cuda" if merge_options.cuda else "cpu",
         storage_device="cuda" if merge_options.low_cpu_memory else "cpu",
+        executor=merge_options.executor,
     )
     exec.execute()
 
