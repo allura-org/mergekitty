@@ -24,6 +24,7 @@ from huggingface_hub.utils import HFValidationError
 from yaml.nodes import SequenceNode as SequenceNode
 
 from mergekitty import merge_methods
+from mergekitty.common import AdapterReference
 from mergekitty.config import MergeConfiguration, ModelReference
 
 CARD_TEMPLATE = """---
@@ -66,6 +67,26 @@ This is a LoRA extracted from a language model. It was extracted using [mergekit
 ### Parameters
 
 The following command was used to extract this LoRA adapter:
+
+```sh
+{invocation}
+```
+"""
+
+CARD_TEMPLATE_MERGED_LORA = """---
+{metadata}
+---
+# {name}
+
+This is a base model with a LoRA adapter merged into it using [mergekitty](https://github.com/allura-org/mergekitty).
+
+## Merge Details
+
+{details}
+
+### Parameters
+
+The following command was used to merge this adapter:
 
 ```sh
 {invocation}
@@ -196,6 +217,52 @@ def generate_card(
         merge_method=method_md(config.merge_method),
         name=name,
         config_yaml=config_yaml,
+    )
+
+
+def generate_card_merged_lora(
+    base_model_ref: ModelReference,
+    adapter_ref: AdapterReference,
+    invocation: str,
+    extended: bool,
+    vocab_size: int,
+    name: str,
+) -> str:
+    if not name:
+        name = "Untitled Merged LoRA Model (1)"
+
+    hf_bases = list(extract_hf_paths([base_model_ref]))
+    if is_hf(adapter_ref.adapter.path):
+        hf_bases.append(adapter_ref.adapter.path)
+
+    tags = ["mergekit", "mergekitty", "peft"]
+    adapter_ref_md = maybe_link_hf(adapter_ref.adapter.path)
+    basemodel_ref_md = modelref_md(base_model_ref)
+
+    details = (
+        f"This model was created by merging {adapter_ref_md} into {basemodel_ref_md}."
+    )
+    if extended:
+        details += (
+            f"\n\n> [!WARNING]\n> This merged model includes an extended "
+            f"vocabulary with size {vocab_size}. Make sure the published tokenizer "
+            "matches the merged weights."
+        )
+
+    if os.path.isdir(base_model_ref.model.path) or os.path.isdir(
+        adapter_ref.adapter.path
+    ):
+        logging.warning(
+            "Some model identifiers you provided are directory paths and will appear as such in the model card, you may want to edit it."
+        )
+
+    return CARD_TEMPLATE_MERGED_LORA.format(
+        metadata=yaml.dump(
+            {"base_model": hf_bases, "tags": tags, "library_name": "transformers"}
+        ),
+        name=name,
+        details=details,
+        invocation=invocation,
     )
 
 

@@ -46,6 +46,8 @@ class ShardedTensorIndex:
         model_path = None
         for model_file_name in [
             "model.safetensors",
+            "adapter_model.safetensors",
+            "adapter_model.bin",
             "pytorch_model.bin",
         ]:
             candidate_path = os.path.join(base_path, model_file_name)
