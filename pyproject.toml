@@ -8,7 +8,7 @@ name = "mergekitty"
 description = "Tools for merging pre-trained large language models"
 readme = "README.md"
 license = { text = "LGPL-3.0-or-later" }
-version = "0.2.2rc5"
+version = "0.2.2"
 authors = [
     { name = "fizz~", email = "fizzarolli@riseup.net" },
     { name = "Charles Goddard", email = "chargoddard@gmail.com" }
