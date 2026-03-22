@@ -1,5 +1,5 @@
 # Partly Copyright (C) 2025 Arcee AI
-# Partly Copyright (C) 2025 Allura-org
+# Partly Copyright (C) 2025-2026 Allura-org
 #
 # This software is free software: you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public License as
