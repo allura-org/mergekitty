@@ -233,7 +233,9 @@ def _update_config_vocab(
     try:
         if hasattr(config, "vocab_size"):
             config.vocab_size = vocab_size
-        elif hasattr(config, "text_config") and hasattr(config.text_config, "vocab_size"):
+        elif hasattr(config, "text_config") and hasattr(
+            config.text_config, "vocab_size"
+        ):
             config.text_config.vocab_size = vocab_size
         else:
             raise AttributeError("config has no vocab_size field")

@@ -439,7 +439,9 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
         return self.definition.num_layers_config_key or super().num_layers_config_key()
 
     def num_experts_config_key(self) -> str:
-        return self.definition.num_experts_config_key or super().num_experts_config_key()
+        return (
+            self.definition.num_experts_config_key or super().num_experts_config_key()
+        )
 
 
 def _load_json_arch(name: str) -> JsonArchitectureInfo:
