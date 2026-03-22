@@ -510,7 +510,9 @@ def get_architecture_info(config: PretrainedConfig) -> ArchitectureInfo:
         raise RuntimeError(f"Unsupported architecture {arch_name}")
 
     candidates = list(NAME_TO_ARCH[arch_name])
-    matches = [candidate for candidate in candidates if candidate.matches_config(config)]
+    matches = [
+        candidate for candidate in candidates if candidate.matches_config(config)
+    ]
     if len(matches) == 1:
         return matches[0]
     if len(matches) > 1:

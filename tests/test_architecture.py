@@ -65,9 +65,7 @@ class TestQwen2VLArchitecture:
 
 
 class TestMistral3Architecture:
-    def test_mistral3_architecture_info_expands_vision_and_text_weights(
-        self, tmp_path
-    ):
+    def test_mistral3_architecture_info_expands_vision_and_text_weights(self, tmp_path):
         model_path = make_mistral3_picollama(tmp_path / "mistral3")
         make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
 
@@ -86,9 +84,7 @@ class TestMistral3Architecture:
         assert "language_model.model.norm.weight" in names
         assert "language_model.lm_head.weight" in names
 
-    def test_mistral3_passthrough_stack_updates_nested_text_layer_count(
-        self, tmp_path
-    ):
+    def test_mistral3_passthrough_stack_updates_nested_text_layer_count(self, tmp_path):
         model_path = make_mistral3_picollama(tmp_path / "mistral3")
         make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
 
