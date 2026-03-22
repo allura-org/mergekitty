@@ -19,7 +19,7 @@ import string
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from transformers import PretrainedConfig
 from typing_extensions import Literal
 
@@ -117,11 +117,14 @@ class ArchitectureInfo(ABC):
 
     def num_layers(self, config: PretrainedConfig) -> int:
         """Return the number of layers in a model."""
-        return getattr(config, self.num_layers_config_key())
+        return get_config_value(config, self.num_layers_config_key())
 
     def num_experts(self, config: PretrainedConfig) -> int:
         """Return the number of experts in a model, or None if not applicable."""
-        return getattr(config, self.num_experts_config_key(), None)
+        try:
+            return get_config_value(config, self.num_experts_config_key())
+        except (AttributeError, KeyError):
+            return None
 
     def all_weights(self, config: PretrainedConfig) -> List[WeightInfo]:
         """Return all weights associated with a model."""
@@ -175,19 +178,56 @@ class JSONLayerTemplates(BaseModel, frozen=True):
     procedural_spaces: Optional[List[ProceduralSpaceInfo]] = None
 
 
+class JSONWeightTemplateGroup(BaseModel, frozen=True):
+    weights: List[WeightInfo]
+    procedural_spaces: Optional[List[ProceduralSpaceInfo]] = None
+    count_config_key: Optional[str] = None
+    index_name: Optional[str] = None
+
+    @model_validator(mode="after")
+    def validate_repeat_fields(self):
+        if (self.count_config_key is None) != (self.index_name is None):
+            raise ValueError(
+                "count_config_key and index_name must be provided together"
+            )
+        return self
+
+
 class JSONArchitectureDefinition(BaseModel, frozen=True):
     expected_model_type: str = Field(alias="model_type")
     architectures: List[str]
+    match_model_type: Optional[str] = None
+    match_model_type_config_key: Optional[str] = None
     pre_weights: List[WeightInfo]
+    pre_weight_templates: Optional[List[JSONWeightTemplateGroup]] = None
     layer_templates: JSONLayerTemplates
     post_weights: List[WeightInfo]
+    post_weight_templates: Optional[List[JSONWeightTemplateGroup]] = None
     procedural_spaces: Optional[List[ProceduralSpaceInfo]] = None
     num_layers_config_key: Optional[str] = None
     num_experts_config_key: Optional[str] = None
 
+    @model_validator(mode="after")
+    def validate_match_model_type_fields(self):
+        if (self.match_model_type is None) != (
+            self.match_model_type_config_key is None
+        ):
+            raise ValueError(
+                "match_model_type and match_model_type_config_key must be provided together"
+            )
+        return self
+
 
 class TemplateWithArithmetic(string.Template):
     idpattern = r"(?a:[_a-z][_a-z0-9]*([+-]1)?)"
+
+
+def _with_index_substitutions(
+    substitutions: Dict[str, int], key: str, value: int
+) -> None:
+    substitutions[key] = value
+    substitutions[f"{key}+1"] = value + 1
+    substitutions[f"{key}-1"] = value - 1
 
 
 def _template_substitution(
@@ -196,45 +236,75 @@ def _template_substitution(
     layer_idx: Optional[int] = None,
     num_experts: Optional[int] = None,
     expert_idx: Optional[int] = None,
+    extra_substitutions: Optional[Dict[str, int]] = None,
 ) -> str:
     if "{" not in template:
         return template
 
-    substitutions = {
-        "num_layers": num_layers,
-        "num_layers+1": num_layers + 1,
-        "num_layers-1": num_layers - 1,
-    }
+    substitutions: Dict[str, int] = {}
+    _with_index_substitutions(substitutions, "num_layers", num_layers)
 
     if layer_idx is not None:
-        substitutions.update(
-            {
-                "layer_index": layer_idx,
-                "layer_index+1": layer_idx + 1,
-                "layer_index-1": layer_idx - 1,
-            }
-        )
+        _with_index_substitutions(substitutions, "layer_index", layer_idx)
 
     if num_experts is not None:
-        substitutions.update(
-            {
-                "expert_index": num_experts,
-                "expert_index+1": num_experts + 1,
-                "expert_index-1": num_experts - 1,
-            }
-        )
+        _with_index_substitutions(substitutions, "num_experts", num_experts)
+        _with_index_substitutions(substitutions, "expert_index", num_experts)
         if expert_idx is not None:
-            substitutions.update(
-                {
-                    "expert_index": expert_idx,
-                }
-            )
+            _with_index_substitutions(substitutions, "expert_index", expert_idx)
+
+    for key, value in (extra_substitutions or {}).items():
+        _with_index_substitutions(substitutions, key, value)
 
     return TemplateWithArithmetic(template).substitute(substitutions)
 
 
+def get_config_value(config: Union[PretrainedConfig, Dict], key_path: str):
+    value = config
+    for key in key_path.split("."):
+        if isinstance(value, dict):
+            value = value[key]
+        else:
+            value = getattr(value, key)
+    return value
+
+
+def set_config_value(
+    config: Union[PretrainedConfig, Dict], key_path: str, value
+) -> None:
+    keys = key_path.split(".")
+    target = config
+    for key in keys[:-1]:
+        if isinstance(target, dict):
+            target = target[key]
+        else:
+            target = getattr(target, key)
+
+    leaf = keys[-1]
+    if isinstance(target, dict):
+        target[leaf] = value
+    else:
+        setattr(target, leaf, value)
+
+
 class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
     definition: JSONArchitectureDefinition
+
+    def matches_config(self, config: PretrainedConfig) -> bool:
+        if self.definition.expected_model_type != config.model_type:
+            return False
+
+        if self.definition.match_model_type_config_key is None:
+            return True
+
+        try:
+            actual_match_model_type = get_config_value(
+                config, self.definition.match_model_type_config_key
+            )
+        except (AttributeError, KeyError):
+            return False
+
+        return actual_match_model_type == self.definition.match_model_type
 
     def _substitute(
         self,
@@ -242,6 +312,7 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
         config: PretrainedConfig,
         layer_idx: Optional[int] = None,
         expert_idx: Optional[int] = None,
+        extra_substitutions: Optional[Dict[str, int]] = None,
     ) -> Union[WeightInfo, ProceduralSpaceInfo]:
         num_layers = self.num_layers(config)
         num_experts = self.num_experts(config)
@@ -250,13 +321,23 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
         for key in obj_dict:
             if isinstance(obj_dict[key], str):
                 obj_dict[key] = _template_substitution(
-                    obj_dict[key], num_layers, layer_idx, num_experts, expert_idx
+                    obj_dict[key],
+                    num_layers,
+                    layer_idx,
+                    num_experts,
+                    expert_idx,
+                    extra_substitutions=extra_substitutions,
                 )
             elif isinstance(obj_dict[key], list):
                 obj_dict[key] = [
                     (
                         _template_substitution(
-                            s, num_layers, layer_idx, num_experts, expert_idx
+                            s,
+                            num_layers,
+                            layer_idx,
+                            num_experts,
+                            expert_idx,
+                            extra_substitutions=extra_substitutions,
                         )
                         if isinstance(s, str)
                         else s
@@ -265,13 +346,36 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
                 ]
         return type(item).model_validate(obj_dict)
 
+    def _substitute_group(
+        self,
+        group: JSONWeightTemplateGroup,
+        config: PretrainedConfig,
+        item: Union[WeightInfo, ProceduralSpaceInfo],
+    ) -> List[Union[WeightInfo, ProceduralSpaceInfo]]:
+        if not group.count_config_key:
+            return [self._substitute(item, config=config)]
+
+        repeat_count = get_config_value(config, group.count_config_key)
+        return [
+            self._substitute(
+                item,
+                config=config,
+                extra_substitutions={group.index_name: index},
+            )
+            for index in range(repeat_count)
+        ]
+
     def name(self) -> str:
         return self.definition.expected_model_type
 
     def pre_weights(self, config: PretrainedConfig) -> List[WeightInfo]:
-        return [
+        res = [
             self._substitute(wi, config=config) for wi in self.definition.pre_weights
         ]
+        for group in self.definition.pre_weight_templates or []:
+            for wi in group.weights:
+                res.extend(self._substitute_group(group, config, wi))
+        return res
 
     def layer_weights(
         self, index: int, config: PretrainedConfig
@@ -300,9 +404,13 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
             ]
 
     def post_weights(self, config: PretrainedConfig) -> List[WeightInfo]:
-        return [
+        res = [
             self._substitute(wi, config=config) for wi in self.definition.post_weights
         ]
+        for group in self.definition.post_weight_templates or []:
+            for wi in group.weights:
+                res.extend(self._substitute_group(group, config, wi))
+        return res
 
     def sliceable(self) -> bool:
         return True
@@ -311,28 +419,57 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
         res = []
         for s in self.definition.procedural_spaces or []:
             res.append(self._substitute(s, config=config))
+        for group in self.definition.pre_weight_templates or []:
+            for s in group.procedural_spaces or []:
+                res.extend(self._substitute_group(group, config, s))
         for idx in range(self.num_layers(config)):
             for s in self.definition.layer_templates.procedural_spaces or []:
                 res.append(self._substitute(s, config=config, layer_idx=idx))
+        for group in self.definition.post_weight_templates or []:
+            for s in group.procedural_spaces or []:
+                res.extend(self._substitute_group(group, config, s))
         return res
 
     def has_defined_spaces(self) -> bool:
         if (
             self.definition.procedural_spaces
+            or any(
+                group.procedural_spaces
+                for group in (self.definition.pre_weight_templates or [])
+            )
             or self.definition.layer_templates.procedural_spaces
+            or any(
+                group.procedural_spaces
+                for group in (self.definition.post_weight_templates or [])
+            )
         ):
             return True
         for wi in (
-            self.definition.layer_templates.weights
-            + self.definition.pre_weights
+            self.definition.pre_weights
+            + [
+                wi
+                for group in (self.definition.pre_weight_templates or [])
+                for wi in group.weights
+            ]
+            + self.definition.layer_templates.weights
             + self.definition.post_weights
+            + [
+                wi
+                for group in (self.definition.post_weight_templates or [])
+                for wi in group.weights
+            ]
         ):
             if wi.input_space or wi.output_space:
                 return True
         return False
 
     def num_layers_config_key(self) -> str:
-        return self.definition.num_layers_config_key
+        return self.definition.num_layers_config_key or super().num_layers_config_key()
+
+    def num_experts_config_key(self) -> str:
+        return (
+            self.definition.num_experts_config_key or super().num_experts_config_key()
+        )
 
 
 def _load_json_arch(name: str) -> JsonArchitectureInfo:
@@ -373,12 +510,15 @@ def get_architecture_info(config: PretrainedConfig) -> ArchitectureInfo:
         raise RuntimeError(f"Unsupported architecture {arch_name}")
 
     candidates = list(NAME_TO_ARCH[arch_name])
-    if len(candidates) == 1:
-        return candidates[0]
-
-    for c in candidates:
-        if c.definition.expected_model_type == config.model_type:
-            return c
+    matches = [
+        candidate for candidate in candidates if candidate.matches_config(config)
+    ]
+    if len(matches) == 1:
+        return matches[0]
+    if len(matches) > 1:
+        raise RuntimeError(
+            f"Ambiguous model_type {config.model_type} for architecture {arch_name}"
+        )
 
     raise RuntimeError(
         f"Unsupported model_type {config.model_type} for architecture {arch_name}"

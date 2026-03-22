@@ -30,6 +30,38 @@ from mergekitty.common import ModelPath, ModelReference
 from mergekitty.task import Task
 
 
+def _find_vocab_size(value) -> Optional[int]:
+    if value is None:
+        return None
+
+    if isinstance(value, dict):
+        vocab_size = value.get("vocab_size")
+        if isinstance(vocab_size, int):
+            return vocab_size
+        for child in value.values():
+            res = _find_vocab_size(child)
+            if res is not None:
+                return res
+        return None
+
+    if isinstance(value, list):
+        for child in value:
+            res = _find_vocab_size(child)
+            if res is not None:
+                return res
+        return None
+
+    vocab_size = getattr(value, "vocab_size", None)
+    if isinstance(vocab_size, int):
+        return vocab_size
+
+    to_dict = getattr(value, "to_dict", None)
+    if callable(to_dict):
+        return _find_vocab_size(to_dict())
+
+    return None
+
+
 def get_vocab_size(model_path: ModelPath, trust_remote_code: bool) -> Optional[int]:
     try:
         cfg = transformers.AutoConfig.from_pretrained(
@@ -37,7 +69,7 @@ def get_vocab_size(model_path: ModelPath, trust_remote_code: bool) -> Optional[i
             revision=model_path.revision,
             trust_remote_code=trust_remote_code,
         )
-        return cfg.vocab_size
+        return _find_vocab_size(cfg)
     except Exception as e:
         logging.warning(f"Unable to get vocab size for {model_path}", exc_info=e)
 

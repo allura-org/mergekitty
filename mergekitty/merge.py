@@ -19,15 +19,20 @@ import importlib.resources
 import logging
 import os
 from collections import Counter
-from typing import Optional
+from typing import Dict, List, Optional
 
 import tqdm
 import transformers
 
 from mergekitty._data import chat_templates
-from mergekitty.architecture import ArchitectureInfo, get_architecture_info
+from mergekitty.architecture import (
+    ArchitectureInfo,
+    get_config_value,
+    get_architecture_info,
+    set_config_value,
+)
 from mergekitty.card import generate_card
-from mergekitty.config import MergeConfiguration
+from mergekitty.config import MergeConfiguration, OutputSliceDefinition
 from mergekitty.executor import SingleThreadedExecutor
 from mergekitty.io.tasks import LoaderCache
 from mergekitty.options import MergeOptions
@@ -199,7 +204,15 @@ def _model_out_config(
                 s.sources[0].layer_range[1] - s.sources[0].layer_range[0]
                 for s in config.slices
             )
-            setattr(res, arch_info.num_layers_config_key(), num_layers)
+            num_layers_key = arch_info.num_layers_config_key()
+            set_config_value(res, num_layers_key, num_layers)
+            _resize_layer_types(
+                res,
+                num_layers_key,
+                num_layers,
+                config.slices,
+                trust_remote_code=trust_remote_code,
+            )
         except Exception as e:
             logging.warning(
                 "Unable to set number of layers in output config - you may need to manually correct it.",
@@ -218,12 +231,84 @@ def _update_config_vocab(
     if pad_to_multiple_of and vocab_size % pad_to_multiple_of:
         vocab_size = vocab_size + pad_to_multiple_of - (vocab_size % pad_to_multiple_of)
     try:
-        config.vocab_size = vocab_size
+        if hasattr(config, "vocab_size"):
+            config.vocab_size = vocab_size
+        elif hasattr(config, "text_config") and hasattr(
+            config.text_config, "vocab_size"
+        ):
+            config.text_config.vocab_size = vocab_size
+        else:
+            raise AttributeError("config has no vocab_size field")
     except Exception as e:
         logging.warning(
             "Unable to set vocabulary size in output config - you may need to manually correct it.",
             exc_info=e,
         )
+
+
+def _resize_layer_types(
+    config: transformers.PretrainedConfig,
+    num_layers_key: str,
+    num_layers: int,
+    slices: List[OutputSliceDefinition],
+    trust_remote_code: bool = False,
+) -> None:
+    layer_types_key = (
+        f"{num_layers_key.rsplit('.', 1)[0]}.layer_types"
+        if "." in num_layers_key
+        else "layer_types"
+    )
+    try:
+        layer_types = get_config_value(config, layer_types_key)
+    except (AttributeError, KeyError):
+        return
+
+    if not isinstance(layer_types, (list, tuple)) or not layer_types:
+        return
+
+    source_config_cache: Dict[str, transformers.PretrainedConfig] = {}
+    resized_layer_types = []
+    warned_on_mismatch = False
+    for out_slice in slices:
+        selected_layer_types = None
+        for source in out_slice.sources:
+            source_key = str(source.model)
+            if source_key not in source_config_cache:
+                source_config_cache[source_key] = source.model.config(
+                    trust_remote_code=trust_remote_code
+                )
+
+            try:
+                source_layer_types = get_config_value(
+                    source_config_cache[source_key], layer_types_key
+                )
+            except (AttributeError, KeyError):
+                return
+
+            if not isinstance(source_layer_types, (list, tuple)):
+                return
+
+            start, end = source.layer_range
+            layer_type_segment = list(source_layer_types[start:end])
+            if len(layer_type_segment) != end - start:
+                return
+
+            if selected_layer_types is None:
+                selected_layer_types = layer_type_segment
+            elif selected_layer_types != layer_type_segment and not warned_on_mismatch:
+                logging.warning(
+                    "Input slice sources have different layer_types metadata; "
+                    "using the first source model values in the output config."
+                )
+                warned_on_mismatch = True
+
+        if selected_layer_types is not None:
+            resized_layer_types.extend(selected_layer_types)
+
+    if len(resized_layer_types) != num_layers:
+        return
+
+    set_config_value(config, layer_types_key, resized_layer_types)
 
 
 __all__ = ["MergeOptions", "run_merge"]

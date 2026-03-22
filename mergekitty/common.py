@@ -327,6 +327,13 @@ def _get_auto_cls(arch_name: str):
     """Get the AutoModel class for a given architecture name."""
     if arch_name.endswith("ForMaskedLM"):
         auto_cls = transformers.AutoModelForMaskedLM
+    elif arch_name.endswith("ForConditionalGeneration"):
+        auto_cls = getattr(transformers, "AutoModelForImageTextToText", None)
+        if auto_cls is None:
+            logging.warning(
+                "AutoModelForImageTextToText is unavailable - assuming AutoModelForCausalLM"
+            )
+            auto_cls = transformers.AutoModelForCausalLM
     elif arch_name.endswith("ForSequenceClassification"):
         auto_cls = transformers.AutoModelForSequenceClassification
     elif arch_name.endswith("ForTokenClassification"):

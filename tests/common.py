@@ -5,12 +5,15 @@ import tempfile
 from typing import Callable, Optional, List, Union
 import json
 
+import pytest
 from transformers import (
     AutoConfig,
     LlamaConfig,
     LlamaForCausalLM,
     PreTrainedTokenizerBase,
     LlamaTokenizerFast,
+    Qwen2VLConfig,
+    Qwen2VLForConditionalGeneration,
     Qwen3MoeConfig,
     Qwen3MoeForCausalLM,
 )
@@ -115,5 +118,85 @@ def make_qwen3moe_picollama(path: str, vocab_size: int = 64):
         num_experts_per_tok=2,
     )
     model = Qwen3MoeForCausalLM(cfg)
+    model.save_pretrained(path, safe_serialization=True)
+    return str(path)
+
+
+def make_qwen2vl_picollama(path: str, vocab_size: int = 64):
+    cfg = Qwen2VLConfig(
+        text_config={
+            "vocab_size": vocab_size,
+            "hidden_size": 32,
+            "intermediate_size": 64,
+            "num_hidden_layers": 2,
+            "num_attention_heads": 4,
+            "num_key_value_heads": 4,
+            "max_position_embeddings": 128,
+            "rope_theta": 10000.0,
+            "bos_token_id": 1,
+            "eos_token_id": 2,
+            "pad_token_id": 0,
+        },
+        vision_config={
+            "depth": 2,
+            "embed_dim": 32,
+            "hidden_size": 32,
+            "hidden_act": "gelu",
+            "mlp_ratio": 2,
+            "num_heads": 4,
+            "in_channels": 3,
+            "patch_size": 4,
+            "spatial_merge_size": 2,
+            "temporal_patch_size": 1,
+        },
+        image_token_id=3,
+        video_token_id=4,
+        vision_start_token_id=5,
+        vision_end_token_id=6,
+    )
+    model = Qwen2VLForConditionalGeneration(cfg)
+    model.config.architectures = ["Qwen2VLForConditionalGeneration"]
+    model.save_pretrained(path, safe_serialization=True)
+    return str(path)
+
+
+def make_mistral3_picollama(path: str, vocab_size: int = 64):
+    try:
+        from transformers import Mistral3Config, Mistral3ForConditionalGeneration
+    except ImportError:
+        pytest.skip("transformers build does not include Mistral3")
+
+    cfg = Mistral3Config(
+        text_config={
+            "model_type": "mistral",
+            "vocab_size": vocab_size,
+            "hidden_size": 32,
+            "intermediate_size": 64,
+            "num_hidden_layers": 2,
+            "num_attention_heads": 4,
+            "num_key_value_heads": 4,
+            "max_position_embeddings": 128,
+            "rope_theta": 10000.0,
+            "bos_token_id": 1,
+            "eos_token_id": 2,
+            "pad_token_id": 0,
+        },
+        vision_config={
+            "model_type": "pixtral",
+            "hidden_size": 32,
+            "intermediate_size": 64,
+            "num_hidden_layers": 2,
+            "num_attention_heads": 4,
+            "num_channels": 3,
+            "patch_size": 4,
+            "image_size": 16,
+            "hidden_act": "gelu",
+        },
+        image_token_index=3,
+        spatial_merge_size=2,
+        tie_word_embeddings=False,
+    )
+    model = Mistral3ForConditionalGeneration(cfg)
+    model.config.architectures = ["Mistral3ForConditionalGeneration"]
     model.save_pretrained(path, safe_serialization=True)
     return str(path)
