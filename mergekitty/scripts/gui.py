@@ -1,4 +1,4 @@
-# Copyright (C) 2025 Allura-org
+# Copyright (C) 2025-2026 Allura-org
 
 try:
     import gradio as gr

@@ -1,5 +1,5 @@
 # Partly Copyright (C) 2025 Arcee AI
-# Partly Copyright (C) 2025 Allura-org
+# Partly Copyright (C) 2025-2026 Allura-org
 #
 # This software is free software: you can redistribute it and/or
 # modify it under the terms of the GNU Lesser General Public License as
@@ -21,7 +21,12 @@ from typing import Dict, Optional, Tuple
 import torch
 
 from mergekitty.architecture import WeightInfo
-from mergekitty.common import ImmutableMap, ModelReference, dtype_from_name
+from mergekitty.common import (
+    AdapterReference,
+    ImmutableMap,
+    ModelReference,
+    dtype_from_name,
+)
 from mergekitty.task import Task
 from mergekitty.io.lazy_tensor_loader import LazyTensorLoader
 from mergekitty.io.tensor_writer import TensorWriter
@@ -29,7 +34,7 @@ from mergekitty.options import MergeOptions
 
 
 class LoaderCache:
-    loaders: Dict[ModelReference, LazyTensorLoader] = {}
+    loaders: Dict[ModelReference | AdapterReference, LazyTensorLoader] = {}
     lora_cache_dir: Optional[str] = None
     hf_cache_dir: Optional[str] = None
     lazy_unpickle: bool = False
@@ -43,14 +48,21 @@ class LoaderCache:
             cls._instance = super(LoaderCache, cls).__new__(cls)
         return cls._instance
 
-    def get(self, model: ModelReference) -> LazyTensorLoader:
+    def get(self, model: ModelReference | AdapterReference) -> LazyTensorLoader:
         if model not in self.loaders:
-            merged = model.merged(
-                cache_dir=self.lora_cache_dir, trust_remote_code=self.trust_remote_code
-            )
-            self.loaders[model] = merged.lazy_loader(
-                cache_dir=self.hf_cache_dir, lazy_unpickle=self.lazy_unpickle
-            )
+            if isinstance(model, ModelReference):
+                merged = model.merged(
+                    cache_dir=self.lora_cache_dir,
+                    trust_remote_code=self.trust_remote_code,
+                )
+                loader = merged.lazy_loader(
+                    cache_dir=self.hf_cache_dir, lazy_unpickle=self.lazy_unpickle
+                )
+            else:
+                loader = model.lazy_loader(
+                    cache_dir=self.hf_cache_dir, lazy_unpickle=self.lazy_unpickle
+                )
+            self.loaders[model] = loader
         return self.loaders[model]
 
     def flush_all(self):
@@ -77,7 +89,7 @@ def _normalized_shard_name(path: str) -> int:
 
 
 class LoadTensor(Task[Optional[torch.Tensor]]):
-    model: ModelReference
+    model: ModelReference | AdapterReference
     tensor: str
     dtype: Optional[str] = None
     device: Optional[str] = None
