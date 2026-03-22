@@ -33,7 +33,7 @@ class MergeOptions(BaseModel):
     cuda: bool = False
     low_cpu_memory: bool = False
     out_shard_size: int = parse_kmb("5B")
-    write_queue_depth: int = Field(default=4, ge=1)
+    write_queue_depth: int = Field(default=1, ge=1)
     copy_tokenizer: bool = True
     clone_tensors: bool = False
     trust_remote_code: bool = False

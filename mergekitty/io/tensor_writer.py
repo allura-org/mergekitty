@@ -44,7 +44,7 @@ class TensorWriter:
         self,
         out_path: str,
         max_shard_size: int = 1000 * 1000 * 1000 * 5,
-        write_queue_depth: int = 4,
+        write_queue_depth: int = 1,
         safe_serialization: bool = True,
     ) -> None:
         if write_queue_depth < 1:

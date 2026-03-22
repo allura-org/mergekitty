@@ -180,7 +180,7 @@ class GatherTensors(Task[Dict[ModelReference, torch.Tensor]]):
 class TensorWriterTask(Task[TensorWriter]):
     out_path: str
     max_shard_size: int
-    write_queue_depth: int = 4
+    write_queue_depth: int = 1
     safe_serialization: bool = True
 
     def arguments(self) -> Dict[str, Task]:
