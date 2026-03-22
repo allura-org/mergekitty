@@ -31,6 +31,7 @@ Update: Mergekit itself has switched back to the LGPL, however it now has a CLA 
 
 This fork is a work in progress. Here are some of the breaking changes we've made so far:
 
+- support for VLMs has been added; the architecture files are incompatible with `mergekit`'s and are implemented differently. (more specifically, templating support for pre- and post-weights has been added)
 - there is a lora merging script based on the task graph system that can be ran with `mergekitty-merge-lora`
 - ALL SCRIPTS, LIBRARY NAMES, ETC HAVE BEEN RENAMED TO `mergekitty`. THIS ONE IS BIG (but you can just replace `mergekit` with `mergekitty` in your codebase/scripts and it will work)
 - legacy tokenizer copying has been removed -- `tokenizer_source` now defaults to `"base"`, which is the same as the legacy functionality
