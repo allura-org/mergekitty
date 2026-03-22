@@ -25,7 +25,12 @@ import tqdm
 import transformers
 
 from mergekitty._data import chat_templates
-from mergekitty.architecture import ArchitectureInfo, get_architecture_info
+from mergekitty.architecture import (
+    ArchitectureInfo,
+    get_config_value,
+    get_architecture_info,
+    set_config_value,
+)
 from mergekitty.card import generate_card
 from mergekitty.config import MergeConfiguration
 from mergekitty.executor import SingleThreadedExecutor
@@ -199,7 +204,9 @@ def _model_out_config(
                 s.sources[0].layer_range[1] - s.sources[0].layer_range[0]
                 for s in config.slices
             )
-            setattr(res, arch_info.num_layers_config_key(), num_layers)
+            num_layers_key = arch_info.num_layers_config_key()
+            set_config_value(res, num_layers_key, num_layers)
+            _resize_layer_types(res, num_layers_key, num_layers)
         except Exception as e:
             logging.warning(
                 "Unable to set number of layers in output config - you may need to manually correct it.",
@@ -218,12 +225,42 @@ def _update_config_vocab(
     if pad_to_multiple_of and vocab_size % pad_to_multiple_of:
         vocab_size = vocab_size + pad_to_multiple_of - (vocab_size % pad_to_multiple_of)
     try:
-        config.vocab_size = vocab_size
+        if hasattr(config, "vocab_size"):
+            config.vocab_size = vocab_size
+        elif hasattr(config, "text_config") and hasattr(config.text_config, "vocab_size"):
+            config.text_config.vocab_size = vocab_size
+        else:
+            raise AttributeError("config has no vocab_size field")
     except Exception as e:
         logging.warning(
             "Unable to set vocabulary size in output config - you may need to manually correct it.",
             exc_info=e,
         )
+
+
+def _resize_layer_types(
+    config: transformers.PretrainedConfig, num_layers_key: str, num_layers: int
+) -> None:
+    if "." in num_layers_key:
+        parent = get_config_value(config, num_layers_key.rsplit(".", 1)[0])
+    else:
+        parent = config
+
+    if isinstance(parent, dict):
+        layer_types = parent.get("layer_types")
+    else:
+        layer_types = getattr(parent, "layer_types", None)
+
+    if not isinstance(layer_types, list) or not layer_types:
+        return
+
+    resized_layer_types = [
+        layer_types[index % len(layer_types)] for index in range(num_layers)
+    ]
+    if isinstance(parent, dict):
+        parent["layer_types"] = resized_layer_types
+    else:
+        parent.layer_types = resized_layer_types
 
 
 __all__ = ["MergeOptions", "run_merge"]
