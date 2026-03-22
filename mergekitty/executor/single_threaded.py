@@ -2,7 +2,7 @@
 # Partly Copyright (C) 2025-2026 Allura-org
 
 import torch
-from typing import Any, Dict, Iterator, List, Set, Tuple, Union
+from typing import Any, Dict, Iterator, List, Set, Tuple
 
 import tqdm
 
