@@ -21,7 +21,7 @@ from typing import Any, Callable, Optional, Union
 
 import click
 from click.core import Context, Parameter
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from mergekitty.common import parse_kmb
 
@@ -33,6 +33,7 @@ class MergeOptions(BaseModel):
     cuda: bool = False
     low_cpu_memory: bool = False
     out_shard_size: int = parse_kmb("5B")
+    write_queue_depth: int = Field(default=4, ge=1)
     copy_tokenizer: bool = True
     clone_tensors: bool = False
     trust_remote_code: bool = False
@@ -52,6 +53,7 @@ OPTION_HELP = {
     "cuda": "Perform matrix arithmetic on GPU",
     "low_cpu_memory": "Store results and intermediate values on GPU. Useful if VRAM > RAM",
     "out_shard_size": "Number of parameters per output shard  [default: 5B]",
+    "write_queue_depth": "Number of completed shards to buffer for background disk writes",
     "copy_tokenizer": "Copy a tokenizer to the output",
     "clone_tensors": "Clone tensors before saving, to allow multiple occurrences of the same layer",
     "trust_remote_code": "Trust remote code from huggingface repos (danger)",

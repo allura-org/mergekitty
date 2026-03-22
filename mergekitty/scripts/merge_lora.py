@@ -270,6 +270,7 @@ def plan_merge(
     writer_task = TensorWriterTask(
         out_path=output_path,
         max_shard_size=options.out_shard_size,
+        write_queue_depth=options.write_queue_depth,
         safe_serialization=options.safe_serialization,
     )
 

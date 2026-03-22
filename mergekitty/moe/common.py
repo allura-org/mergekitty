@@ -46,6 +46,7 @@ def initialize_io(
     writer = TensorWriter(
         out_path=out_path,
         max_shard_size=merge_options.out_shard_size,
+        write_queue_depth=merge_options.write_queue_depth,
         safe_serialization=merge_options.safe_serialization,
     )
 
