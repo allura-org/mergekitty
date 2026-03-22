@@ -106,16 +106,27 @@ class ShardedTensorIndex:
         )
 
 
+@dataclass
+class _ThreadShardState:
+    shard_file: Optional[str] = None
+    shard: Optional[TensorLoader] = None
+
+
 class LazyTensorLoader:
     index: ShardedTensorIndex
-    current_shard: Optional[TensorLoader]
     lazy_unpickle: bool
 
     def __init__(self, index: ShardedTensorIndex, lazy_unpickle: bool = True):
         self.index = index
-        self.current_shard = None
         self.lazy_unpickle = lazy_unpickle
-        self._lock = threading.Lock()
+        self._thread_state = threading.local()
+
+    def _get_thread_state(self) -> _ThreadShardState:
+        state = getattr(self._thread_state, "value", None)
+        if state is None:
+            state = _ThreadShardState()
+            self._thread_state.value = state
+        return state
 
     def get_tensor(
         self,
@@ -124,37 +135,33 @@ class LazyTensorLoader:
         aliases: Optional[List[str]] = None,
         raise_on_missing: bool = True,
     ) -> Optional[Tensor]:
-        with self._lock:
-            if aliases and key not in self.index.tensor_paths:
-                for alias in aliases:
-                    if alias in self.index.tensor_paths:
-                        key = alias
-                        break
+        if aliases and key not in self.index.tensor_paths:
+            for alias in aliases:
+                if alias in self.index.tensor_paths:
+                    key = alias
+                    break
 
-            if self.current_shard is None or key not in self.current_shard.keys():
-                if key not in self.index.tensor_paths:
-                    if raise_on_missing:
-                        raise KeyError(key)
-                    return None
+        if key not in self.index.tensor_paths:
+            if raise_on_missing:
+                raise KeyError(key)
+            return None
 
-                self.current_shard = None
-                self.current_keys = None
+        shard_file = self.index.tensor_paths[key]
+        state = self._get_thread_state()
+        if state.shard is None or state.shard_file != shard_file:
+            shard_full_path = os.path.join(self.index.base_path, shard_file)
+            logging.debug(f"Opening shard {shard_full_path}")
+            state.shard = TensorLoader.get(
+                shard_full_path,
+                use_lazy_unpickle=self.lazy_unpickle,
+                device=device,
+            )
+            state.shard_file = shard_file
 
-                shard_file = self.index.tensor_paths[key]
-                shard_full_path = os.path.join(self.index.base_path, shard_file)
-                logging.debug(f"Opening shard {shard_full_path}")
-                self.current_shard = TensorLoader.get(
-                    shard_full_path,
-                    use_lazy_unpickle=self.lazy_unpickle,
-                    device=device,
-                )
-
-            return self.current_shard.get_tensor(key).to(device)
+        return state.shard.get_tensor(key).to(device)
 
     def flush(self):
-        with self._lock:
-            self.current_shard = None
-            self.current_keys = None
+        self._thread_state = threading.local()
 
     @classmethod
     def from_disk(
