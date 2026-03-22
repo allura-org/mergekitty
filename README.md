@@ -23,12 +23,15 @@
 
 ## Reasons for the fork
 
-This project is a fork of `mergekit` by Arcee.ai, and originally created by Charles Goddard. This fork was created from the last LGPL licensed commit from the original `mergekit` repository, mainly due to it's anti-community switch to the source-available BSL license (in light of how much work the *community* did to make `mergekit` what it is today).
+This project is a fork of `mergekit` by Arcee.ai, and originally created by Charles Goddard. This fork was created from the ~~last LGPL licensed commit from the original `mergekit` repository, mainly due to it's anti-community switch to the source-available BSL license (in light of how much work the *community* did to make `mergekit` what it is today).~~
+
+Update: Mergekit itself has switched back to the LGPL, however it now has a CLA attached for all contributions, meaning they are given ownership of your contributions and allowed to change the license back at any time.
 
 ## Breaking changes
 
 This fork is a work in progress. Here are some of the breaking changes we've made so far:
 
+- there is a lora merging script based on the task graph system that can be ran with `mergekitty-merge-lora`
 - ALL SCRIPTS, LIBRARY NAMES, ETC HAVE BEEN RENAMED TO `mergekitty`. THIS ONE IS BIG (but you can just replace `mergekit` with `mergekitty` in your codebase/scripts and it will work)
 - legacy tokenizer copying has been removed -- `tokenizer_source` now defaults to `"base"`, which is the same as the legacy functionality
 - `bakllama` and `mergekit-legacy` have been removed. if someone can give me a real (not fake) use for them then they will be added back.
@@ -39,26 +42,18 @@ This fork is a work in progress. Here are some of the breaking changes we've mad
 
 ## Why Merge Models?
 
-Model merging is a powerful technique that allows combining the strengths of different models without the computational overhead of ensembling or the need for additional training. By operating directly in the weight space of models, merging can:
-
-- Combine multiple specialized models into a single versatile model
-- Transfer capabilities between models without access to training data
-- Find optimal trade-offs between different model behaviors
-- Improve performance while maintaining inference costs
-- Create new capabilities through creative model combinations
-
-Unlike traditional ensembling which requires running multiple models, merged models maintain the same inference cost as a single model while often achieving comparable or superior performance.
+Model merging is chaos magick that has been proven multiple times to create models that are better than the sum of their parts.
 
 ## Features
 
 Key features of `mergekitty` include:
 
-- Supports Llama, Mistral, GPT-NeoX, StableLM, and more
-- Many [merge methods](#merge-methods)
+- Supports new (Llama 3, Qwen 3 (Dense and MoE), Mistral, GLM4) and old (GPT-NeoX, BERT) model architectures
+- Many [merge methods](#merge-methods). An excessive amount even
 - GPU or CPU execution
 - Lazy loading of tensors for low memory use
 - Interpolated gradients for parameter values (inspired by Gryphe's [BlockMerge_Gradient](https://github.com/Gryphe/BlockMerge_Gradient) script)
-- Piecewise assembly of language models from layers ("Frankenmerging")
+- Piecewise assembly of language models from layers (i.e. "Frankenmerging", ala Goliath or Midnight Miqu)
 - [Mixture of Experts merging](#mixture-of-experts-merging)
 - [LORA extraction](#lora-extraction)
 
@@ -98,9 +93,9 @@ For more information on the arguments accepted by `mergekitty-yaml` run the comm
 
 ### Uploading to Huggingface
 
-When you have a merged model you're happy with, you may want to share it on the Hugging Face Hub. `mergekitty` generates a `README.md` for your merge with some basic information for a model card. You can edit it to include more details about your merge, like giving it a good name or explaining what it's good at; rewrite it entirely; or use the generated `README.md` as-is. It is also possible to edit your `README.md` online once it has been uploaded to the Hub.
+When you have a merged model you're happy with, you may want to share it on Huggingface. `mergekitty` generates a `README.md` for your merge with some basic information for a model card. You can edit it to include more details about your merge, like giving it a good name or explaining what it's good at; rewrite it entirely; or use the generated `README.md` as-is. It is also possible to edit your `README.md` online once it has been uploaded to HF.
 
-Once you're happy with your model card and merged model, you can upload it to the Hugging Face Hub using the [huggingface_hub](https://huggingface.co/docs/huggingface_hub/index) Python library.
+Once you're happy with your model card and merged model, you can upload it to Huggingface using the [huggingface_hub](https://huggingface.co/docs/huggingface_hub/index) Python library.
 
 ```sh
 # log in to huggingface with an access token (must have write permission)
