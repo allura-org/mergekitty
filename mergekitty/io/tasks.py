@@ -85,7 +85,7 @@ class LoaderCache:
 shard_name_re = re.compile(r"model\-([0-9]+)-of-([0-9]+)")
 
 
-def _normalized_shard_name(path: str) -> int:
+def _normalized_shard_name(path: str) -> str:
     name, _ext = os.path.splitext(os.path.basename(path))
     name = name.lower().replace("pytorch_model", "model")
     if m := shard_name_re.search(name):
@@ -136,11 +136,11 @@ class LoadTensor(Task[Optional[torch.Tensor]]):
     def group_label(self) -> Optional[str]:
         loader = LoaderCache().get(self.model)
         name = self._resolve_name(loader)
-        # if name:
-        #     shard_path = loader.index.tensor_paths[name]
-        #     return _normalized_shard_name(shard_path)
-        # return None
-        return name
+        if not name:
+            return None
+
+        shard_path = loader.index.tensor_paths[name]
+        return _normalized_shard_name(shard_path)
 
 
 class GatherTensors(Task[Dict[ModelReference, torch.Tensor]]):

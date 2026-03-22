@@ -1,13 +1,15 @@
 # Partly Copyright (C) 2025 Arcee AI
 # Partly Copyright (C) 2025-2026 Allura-org
 import threading
+from types import SimpleNamespace
 from typing import Any, Dict, Optional
 
 import networkx
 import pytest
 
-from mergekitty.common import ImmutableMap
+from mergekitty.common import ImmutableMap, ModelReference
 from mergekitty.executor import ParallelismExecutor, SingleThreadedExecutor
+from mergekitty.io.tasks import LoadTensor, LoaderCache
 from mergekitty.task import Task
 
 EXECUTION_COUNTS: Dict[Task, int] = {}
@@ -186,6 +188,36 @@ class TestExecutorGroupLabel:
 
         assert group1_indices[-1] > group2_index, (
             "Task with the same group label but later dependency was not scheduled after different group label"
+        )
+
+    def test_load_tensor_scheduling_groups_by_shard(self, executor_cls, monkeypatch):
+        model = ModelReference.parse("fake-model")
+        tensor_paths = {
+            "model.layers.0.self_attn.q_proj.weight": "model-00001-of-00004.safetensors",
+            "model.layers.1.self_attn.q_proj.weight": "model-00001-of-00004.safetensors",
+            "model.layers.2.self_attn.q_proj.weight": "model-00001-of-00004.safetensors",
+            "model.layers.10.self_attn.q_proj.weight": "model-00003-of-00004.safetensors",
+            "model.layers.11.self_attn.q_proj.weight": "model-00003-of-00004.safetensors",
+            "model.layers.12.self_attn.q_proj.weight": "model-00003-of-00004.safetensors",
+        }
+        fake_loader = SimpleNamespace(
+            index=SimpleNamespace(tensor_paths=tensor_paths),
+        )
+        monkeypatch.setattr(LoaderCache, "get", lambda self, _model: fake_loader)
+
+        tasks = [LoadTensor(model=model, tensor=name) for name in tensor_paths]
+        schedule = executor_cls(tasks)._make_schedule(tasks)
+
+        shard_switches = 0
+        previous_shard = None
+        for task in schedule:
+            shard = tensor_paths[task.tensor]
+            if previous_shard is not None and shard != previous_shard:
+                shard_switches += 1
+            previous_shard = shard
+
+        assert shard_switches <= 1, (
+            "LoadTensor scheduling should preserve shard locality"
         )
 
 
