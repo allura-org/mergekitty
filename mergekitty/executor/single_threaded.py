@@ -2,16 +2,15 @@
 # Partly Copyright (C) 2025-2026 Allura-org
 
 import torch
-from typing import Any, Dict, Iterator, List, Set, Tuple, Union
+from typing import Any, Dict, Iterator, List, Set, Tuple
 
-import networkx
 import tqdm
 
-
+from mergekitty.executor._base import ExecutorBase
 from mergekitty.task import Task
 
 
-class SingleThreadedExecutor:
+class SingleThreadedExecutor(ExecutorBase):
     """
     Schedules and executes a set of tasks and their dependencies.
 
@@ -34,8 +33,8 @@ class SingleThreadedExecutor:
     def __init__(
         self,
         tasks: List[Task],
-        math_device: torch.device = torch.device("cpu"),
-        storage_device: torch.device = torch.device("cpu"),
+        math_device: torch.device | str = torch.device("cpu"),
+        storage_device: torch.device | str = torch.device("cpu"),
     ):
         """
         Initializes the Executor with a list of tasks and device configurations.
@@ -45,10 +44,11 @@ class SingleThreadedExecutor:
             math_device (torch.device, optional): The device for tensor computations. Defaults to CPU.
             storage_device (torch.device, optional): The device for storing results. Defaults to CPU.
         """
-        self.math_device = math_device
-        self.storage_device = storage_device
-        self.schedule = self._make_schedule(tasks)
-        self.targets = tasks
+        super().__init__(
+            tasks=tasks,
+            math_device=math_device,
+            storage_device=storage_device,
+        )
 
     def run(self, quiet: bool = False) -> Iterator[Tuple[Task, Any]]:
         """
@@ -98,11 +98,13 @@ class SingleThreadedExecutor:
                 arguments[name] = value
                 del value
 
-            res = task.execute(**arguments)
+            res = self._prepare_result(
+                task.execute(**arguments),
+                execution_device=self.math_device
+                if use_math_device
+                else torch.device("cpu"),
+            )
             del arguments
-
-            if isinstance(res, torch.Tensor) and res.device != self.storage_device:
-                res = res.to(self.storage_device)
 
             values[task] = res
             del res
@@ -128,49 +130,3 @@ class SingleThreadedExecutor:
         """
         for task, value in self.run():
             pass
-
-    DUMMY_TASK_VALUE = "!!DUMMY!!"
-
-    def _make_schedule(self, targets: List[Task]) -> List[Task]:
-        self.schedule = []
-        self.dependencies = self._build_dependencies(targets)
-
-        edge_tups = []
-        for node in self.dependencies:
-            for dependency in self.dependencies[node]:
-                edge_tups.append((dependency, node))
-
-        for task in targets:
-            # add edges from a dummy node to each target to guarantee
-            # they will be included in the final schedule
-            edge_tups.append((SingleThreadedExecutor.DUMMY_TASK_VALUE, task))
-
-        def _compare_key(task: Union[Task, str]):
-            if task == SingleThreadedExecutor.DUMMY_TASK_VALUE:
-                return ("", 0)
-            return (
-                task.group_label() or "",
-                -task.priority(),
-            )
-
-        graph = networkx.DiGraph(edge_tups)
-        res = [
-            t
-            for t in networkx.lexicographical_topological_sort(graph, key=_compare_key)
-            if t != SingleThreadedExecutor.DUMMY_TASK_VALUE
-        ]
-        return res
-
-    def _build_dependencies(self, targets: List[Task]) -> Dict[Task, Set[Task]]:
-        task_dependencies: Dict[Task, Set[Task]] = {}
-        to_process = list(targets)
-        while to_process:
-            child = to_process.pop()
-            if child in task_dependencies:
-                continue
-
-            task_dependencies[child] = set()
-            for _, dep in child.arguments().items():
-                task_dependencies[child].add(dep)
-                to_process.append(dep)
-        return task_dependencies

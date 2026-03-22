@@ -1,15 +1,20 @@
 # Partly Copyright (C) 2025 Arcee AI
 # Partly Copyright (C) 2025-2026 Allura-org
+import threading
 from typing import Any, Dict, Optional
 
 import networkx
 import pytest
 
 from mergekitty.common import ImmutableMap
+from mergekitty.executor import ParallelismExecutor, SingleThreadedExecutor
 from mergekitty.task import Task
-from mergekitty.executor import SingleThreadedExecutor
 
 EXECUTION_COUNTS: Dict[Task, int] = {}
+BLOCKING_TASKS_STARTED: set[str] = set()
+BLOCKING_TASKS_LOCK = threading.Lock()
+BLOCKING_TASKS_READY = threading.Event()
+BLOCKING_TASKS_RELEASE = threading.Event()
 
 
 class DummyTask(Task):
@@ -41,6 +46,14 @@ def create_mock_task(name, result=None, dependencies=None, group_label=None):
     )
 
 
+@pytest.fixture(
+    params=[SingleThreadedExecutor, ParallelismExecutor],
+    ids=["single", "parallel"],
+)
+def executor_cls(request):
+    return request.param
+
+
 # Test cases for the Task implementation
 class TestTaskClass:
     def test_task_execute(self):
@@ -59,57 +72,57 @@ class TestTaskClass:
 
 # Test cases for the Executor implementation
 class TestExecutorClass:
-    def test_executor_initialization(self):
+    def test_executor_initialization(self, executor_cls):
         # Testing initialization with single task
         task = create_mock_task("task1")
-        executor = SingleThreadedExecutor([task])
+        executor = executor_cls([task])
         assert executor.targets == [task], (
             "Executor did not initialize with correct targets"
         )
 
-    def test_executor_empty_list(self):
-        list(SingleThreadedExecutor([]).run())
+    def test_executor_empty_list(self, executor_cls):
+        list(executor_cls([]).run())
 
-    def test_executor_scheduling(self):
+    def test_executor_scheduling(self, executor_cls):
         # Testing scheduling with dependencies
         task1 = create_mock_task("task1", result=1)
         task2 = create_mock_task("task2", result=2, dependencies={"task1": task1})
-        executor = SingleThreadedExecutor([task2])
+        executor = executor_cls([task2])
         assert len(executor._make_schedule([task2])) == 2, (
             "Schedule should include two tasks"
         )
 
-    def test_executor_dependency_building(self):
+    def test_executor_dependency_building(self, executor_cls):
         # Testing dependency building
         task1 = create_mock_task("task1")
         task2 = create_mock_task("task2", dependencies={"task1": task1})
-        executor = SingleThreadedExecutor([task2])
+        executor = executor_cls([task2])
         dependencies = executor._build_dependencies([task2])
         assert task1 in dependencies[task2], "Task1 should be a dependency of Task2"
 
-    def test_executor_run(self):
+    def test_executor_run(self, executor_cls):
         # Testing execution through the run method
         task1 = create_mock_task("task1", result=10)
         task2 = create_mock_task("task2", result=20, dependencies={"task1": task1})
-        executor = SingleThreadedExecutor([task2])
+        executor = executor_cls([task2])
         results = list(executor.run())
         assert len(results) == 1 and results[0][1] == 20, (
             "Executor run did not yield correct results"
         )
 
-    def test_executor_execute(self):
+    def test_executor_execute(self, executor_cls):
         # Testing execute method for side effects
         task1 = create_mock_task("task1", result=10)
-        executor = SingleThreadedExecutor([task1])
+        executor = executor_cls([task1])
         # No assert needed; we're ensuring no exceptions are raised and method completes
         executor.execute()
 
-    def test_dependency_ordering(self):
+    def test_dependency_ordering(self, executor_cls):
         # Testing the order of task execution respects dependencies
         task1 = create_mock_task("task1", result=1)
         task2 = create_mock_task("task2", result=2, dependencies={"task1": task1})
         task3 = create_mock_task("task3", result=3, dependencies={"task2": task2})
-        executor = SingleThreadedExecutor([task3])
+        executor = executor_cls([task3])
 
         schedule = executor._make_schedule([task3])
         assert schedule.index(task1) < schedule.index(task2), (
@@ -121,7 +134,7 @@ class TestExecutorClass:
 
 
 class TestExecutorGroupLabel:
-    def test_group_label_scheduling(self):
+    def test_group_label_scheduling(self, executor_cls):
         # Create tasks with group labels and dependencies
         task1 = create_mock_task("task1", group_label="group1")
         task2 = create_mock_task(
@@ -133,7 +146,7 @@ class TestExecutorGroupLabel:
         )
 
         # Initialize Executor with the tasks
-        executor = SingleThreadedExecutor([task4])
+        executor = executor_cls([task4])
 
         # Get the scheduled tasks
         schedule = executor._make_schedule([task4])
@@ -149,7 +162,7 @@ class TestExecutorGroupLabel:
             "group1",
         ], "Tasks with same group label are not scheduled consecutively"
 
-    def test_group_label_with_dependencies(self):
+    def test_group_label_with_dependencies(self, executor_cls):
         # Creating tasks with dependencies and group labels
         task1 = create_mock_task("task1", result=1, group_label="group1")
         task2 = create_mock_task(
@@ -159,7 +172,7 @@ class TestExecutorGroupLabel:
             "task3", result=3, dependencies={"task2": task2}, group_label="group1"
         )
 
-        executor = SingleThreadedExecutor([task3])
+        executor = executor_cls([task3])
         schedule = executor._make_schedule([task3])
         scheduled_labels = [
             task.group_label() for task in schedule if task.group_label()
@@ -177,7 +190,7 @@ class TestExecutorGroupLabel:
 
 
 class TestExecutorSingleExecution:
-    def test_single_execution_per_task(self):
+    def test_single_execution_per_task(self, executor_cls):
         EXECUTION_COUNTS.clear()
 
         shared_task = create_mock_task("shared_task", result=100)
@@ -185,7 +198,7 @@ class TestExecutorSingleExecution:
         task2 = create_mock_task("task2", dependencies={"shared": shared_task})
         task3 = create_mock_task("task3", dependencies={"task1": task1, "task2": task2})
 
-        SingleThreadedExecutor([task3]).execute()
+        executor_cls([task3]).execute()
 
         assert shared_task in EXECUTION_COUNTS, "Dependency not executed"
         assert EXECUTION_COUNTS[shared_task] == 1, (
@@ -201,10 +214,68 @@ class CircularTask(Task):
         assert False, "Task with circular dependency executed"
 
 
+class BlockingTask(Task):
+    name: str
+
+    def arguments(self) -> Dict[str, Task]:
+        return {}
+
+    def execute(self, **_kwargs) -> str:
+        with BLOCKING_TASKS_LOCK:
+            BLOCKING_TASKS_STARTED.add(self.name)
+            if len(BLOCKING_TASKS_STARTED) >= 2:
+                BLOCKING_TASKS_READY.set()
+
+        assert BLOCKING_TASKS_RELEASE.wait(timeout=5), (
+            "Timed out waiting for blocking tasks to be released"
+        )
+        return self.name
+
+
 class TestExecutorCircularDependency:
-    def test_circular_dependency(self):
+    def test_circular_dependency(self, executor_cls):
         with pytest.raises(networkx.NetworkXUnfeasible):
-            SingleThreadedExecutor([CircularTask()]).execute()
+            executor_cls([CircularTask()]).execute()
+
+
+class TestParallelismExecutor:
+    def test_executes_ready_tasks_in_parallel(self):
+        with BLOCKING_TASKS_LOCK:
+            BLOCKING_TASKS_STARTED.clear()
+        BLOCKING_TASKS_READY.clear()
+        BLOCKING_TASKS_RELEASE.clear()
+
+        left = BlockingTask(name="left")
+        right = BlockingTask(name="right")
+        target = create_mock_task(
+            "target",
+            dependencies={"left": left, "right": right},
+        )
+
+        executor = ParallelismExecutor([target], max_workers=2)
+        errors = []
+
+        def _run_executor():
+            try:
+                executor.execute()
+            except Exception as exc:  # pragma: no cover - assertion handles this
+                errors.append(exc)
+                BLOCKING_TASKS_RELEASE.set()
+
+        thread = threading.Thread(target=_run_executor, daemon=True)
+        thread.start()
+
+        assert BLOCKING_TASKS_READY.wait(timeout=5), (
+            "Parallel executor did not start both ready tasks concurrently"
+        )
+        with BLOCKING_TASKS_LOCK:
+            assert BLOCKING_TASKS_STARTED == {"left", "right"}
+
+        BLOCKING_TASKS_RELEASE.set()
+        thread.join(timeout=5)
+
+        assert not thread.is_alive(), "Parallel executor did not finish"
+        assert not errors
 
 
 if __name__ == "__main__":
