@@ -51,8 +51,13 @@ class LoaderCache:
         return cls._instance
 
     def get(self, model: ModelReference | AdapterReference) -> LazyTensorLoader:
+        loader = self.loaders.get(model)
+        if loader is not None:
+            return loader
+
         with self._lock:
-            if model not in self.loaders:
+            loader = self.loaders.get(model)
+            if loader is None:
                 if isinstance(model, ModelReference):
                     merged = model.merged(
                         cache_dir=self.lora_cache_dir,
@@ -66,7 +71,7 @@ class LoaderCache:
                         cache_dir=self.hf_cache_dir, lazy_unpickle=self.lazy_unpickle
                     )
                 self.loaders[model] = loader
-            return self.loaders[model]
+            return loader
 
     def flush_all(self):
         with self._lock:

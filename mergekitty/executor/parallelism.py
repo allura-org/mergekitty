@@ -120,7 +120,7 @@ class ParallelismExecutor(ExecutorBase):
         ) -> Dict[str, Any]:
             prepare_start = time.perf_counter()
             arguments = {}
-            for name, dep in task.arguments().items():
+            for name, dep in self.task_arguments[task].items():
                 value = values[dep]
                 if task.uses_accelerator():
                     value = self._move_value_to_device(value, execution_device)

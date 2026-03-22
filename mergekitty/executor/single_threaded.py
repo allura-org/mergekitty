@@ -80,7 +80,7 @@ class SingleThreadedExecutor(ExecutorBase):
 
             prep_start = time.perf_counter()
             arguments = {}
-            for name, dep in task.arguments().items():
+            for name, dep in self.task_arguments[task].items():
                 value = values[dep]
 
                 # ensure any input tensors are on math device if task asks for it

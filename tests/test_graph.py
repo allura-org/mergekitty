@@ -13,6 +13,7 @@ from mergekitty.io.tasks import LoadTensor, LoaderCache
 from mergekitty.task import Task
 
 EXECUTION_COUNTS: Dict[Task, int] = {}
+ARGUMENT_COUNTS: Dict[Task, int] = {}
 BLOCKING_TASKS_STARTED: set[str] = set()
 BLOCKING_TASKS_LOCK = threading.Lock()
 BLOCKING_TASKS_READY = threading.Event()
@@ -34,6 +35,18 @@ class DummyTask(Task):
 
     def execute(self, **kwargs):
         EXECUTION_COUNTS[self] = EXECUTION_COUNTS.get(self, 0) + 1
+        return self.result
+
+
+class CountingArgumentsTask(Task):
+    dependencies: ImmutableMap[str, Task]
+    result: Any = None
+
+    def arguments(self):
+        ARGUMENT_COUNTS[self] = ARGUMENT_COUNTS.get(self, 0) + 1
+        return self.dependencies
+
+    def execute(self, **_kwargs):
         return self.result
 
 
@@ -236,6 +249,30 @@ class TestExecutorSingleExecution:
         assert EXECUTION_COUNTS[shared_task] == 1, (
             "Shared dependency should be executed exactly once"
         )
+
+    def test_arguments_are_built_once_per_task(self, executor_cls):
+        ARGUMENT_COUNTS.clear()
+
+        leaf = CountingArgumentsTask(
+            dependencies=ImmutableMap(data={}),
+            result="leaf",
+        )
+        middle = CountingArgumentsTask(
+            dependencies=ImmutableMap(data={"leaf": leaf}),
+            result="middle",
+        )
+        root = CountingArgumentsTask(
+            dependencies=ImmutableMap(data={"middle": middle}),
+            result="root",
+        )
+
+        executor_cls([root]).execute()
+
+        assert ARGUMENT_COUNTS == {
+            leaf: 1,
+            middle: 1,
+            root: 1,
+        }
 
 
 class CircularTask(Task):
