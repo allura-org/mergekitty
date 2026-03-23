@@ -21,7 +21,6 @@ class ExecutorBase:
     schedule: List[Task]
     dependencies: Dict[Task, Set[Task]]
     dependents: Dict[Task, Set[Task]]
-    task_arguments: Dict[Task, Dict[str, Task]]
     _task_timing_mode: str
     _slow_task_threshold_seconds: float
 
@@ -56,7 +55,6 @@ class ExecutorBase:
 
     def _make_schedule(self, targets: List[Task]) -> List[Task]:
         self.schedule = []
-        self.task_arguments = {}
         self.dependencies = self._build_dependencies(targets)
 
         edge_tups = []
@@ -84,10 +82,8 @@ class ExecutorBase:
             if child in task_dependencies:
                 continue
 
-            arguments = child.arguments()
-            self.task_arguments[child] = arguments
             task_dependencies[child] = set()
-            for dep in arguments.values():
+            for _, dep in child.arguments().items():
                 task_dependencies[child].add(dep)
                 to_process.append(dep)
         return task_dependencies

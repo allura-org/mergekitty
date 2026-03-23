@@ -267,7 +267,6 @@ class MergePlanner:
         writer_task = TensorWriterTask(
             out_path=out_path,
             max_shard_size=self.options.out_shard_size,
-            write_queue_depth=self.options.write_queue_depth,
             safe_serialization=self.options.safe_serialization,
         )
         save_tasks = []

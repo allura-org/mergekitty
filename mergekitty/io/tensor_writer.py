@@ -28,7 +28,6 @@ import torch
 class TensorWriter:
     out_path: str
     max_shard_size: int
-    write_queue_depth: int
     shards_written: int
     weight_map = Dict[str, str]
     current_shard: Dict[str, torch.Tensor]
@@ -44,17 +43,12 @@ class TensorWriter:
         self,
         out_path: str,
         max_shard_size: int = 1000 * 1000 * 1000 * 5,
-        write_queue_depth: int = 1,
         safe_serialization: bool = True,
     ) -> None:
-        if write_queue_depth < 1:
-            raise ValueError("write_queue_depth must be at least 1")
-
         os.makedirs(out_path, exist_ok=True)
 
         self.out_path = out_path
         self.max_shard_size = max_shard_size
-        self.write_queue_depth = write_queue_depth
         self.safe_serialization = safe_serialization
         self.shards_written = 0
         self.weight_map = {}
@@ -62,7 +56,7 @@ class TensorWriter:
         self.current_shard_size = 0
         self.total_size = 0
         self._lock = threading.RLock()
-        self._pending_writes = queue.Queue(maxsize=write_queue_depth)
+        self._pending_writes = queue.Queue(maxsize=1)
         self._writer_error = None
         self._writer_thread = threading.Thread(
             target=self._writer_loop,

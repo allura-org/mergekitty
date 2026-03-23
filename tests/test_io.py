@@ -9,20 +9,6 @@ from mergekitty.io import TensorWriter
 
 
 class TestTensorWriter:
-    def test_queue_depth_is_configurable(self):
-        with tempfile.TemporaryDirectory() as d:
-            writer = TensorWriter(d, write_queue_depth=3)
-
-            assert writer.write_queue_depth == 3
-            assert writer._pending_writes.maxsize == 3
-
-            writer.finalize()
-
-    def test_queue_depth_must_be_positive(self):
-        with tempfile.TemporaryDirectory() as d:
-            with pytest.raises(ValueError, match="write_queue_depth"):
-                TensorWriter(d, write_queue_depth=0)
-
     def test_safetensors(self):
         with tempfile.TemporaryDirectory() as d:
             writer = TensorWriter(d, safe_serialization=True)

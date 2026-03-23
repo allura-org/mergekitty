@@ -51,13 +51,8 @@ class LoaderCache:
         return cls._instance
 
     def get(self, model: ModelReference | AdapterReference) -> LazyTensorLoader:
-        loader = self.loaders.get(model)
-        if loader is not None:
-            return loader
-
         with self._lock:
-            loader = self.loaders.get(model)
-            if loader is None:
+            if model not in self.loaders:
                 if isinstance(model, ModelReference):
                     merged = model.merged(
                         cache_dir=self.lora_cache_dir,
@@ -71,7 +66,7 @@ class LoaderCache:
                         cache_dir=self.hf_cache_dir, lazy_unpickle=self.lazy_unpickle
                     )
                 self.loaders[model] = loader
-            return loader
+            return self.loaders[model]
 
     def flush_all(self):
         with self._lock:
@@ -185,7 +180,6 @@ class GatherTensors(Task[Dict[ModelReference, torch.Tensor]]):
 class TensorWriterTask(Task[TensorWriter]):
     out_path: str
     max_shard_size: int
-    write_queue_depth: int = 1
     safe_serialization: bool = True
 
     def arguments(self) -> Dict[str, Task]:
@@ -195,7 +189,6 @@ class TensorWriterTask(Task[TensorWriter]):
         return TensorWriter(
             self.out_path,
             max_shard_size=self.max_shard_size,
-            write_queue_depth=self.write_queue_depth,
             safe_serialization=self.safe_serialization,
         )
 
