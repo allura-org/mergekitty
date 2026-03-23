@@ -1,4 +1,3 @@
-```
 # mergekitty
 
 `mergekitty` is a toolkit for merging pre-trained language models. It uses an out-of-core approach so you can run surprisingly complex merges on modest hardware — entirely on CPU, or with as little as 8 GB of VRAM.
