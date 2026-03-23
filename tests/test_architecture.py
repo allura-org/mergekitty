@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 from common import (
+    make_gemma3_picollama,
     make_mistral3_picollama,
     make_qwen2vl_picollama,
     make_qwen3_5_picollama,
@@ -184,6 +185,64 @@ class TestQwen3_5Architecture:
                 "full_attention",
                 "linear_attention",
                 "linear_attention",
+            ]
+
+        run_and_check_merge(config, validate=_check_config_layers)
+
+
+class TestGemma3Architecture:
+    def test_gemma3_architecture_info_expands_vision_and_text_weights(self, tmp_path):
+        model_path = make_gemma3_picollama(tmp_path / "gemma3")
+        make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
+
+        cfg = AutoConfig.from_pretrained(model_path)
+        arch_info = get_architecture_info(cfg)
+        weights = arch_info.all_weights(cfg)
+        names = {weight.name for weight in weights}
+
+        assert arch_info.name() == "gemma3"
+        assert arch_info.num_layers(cfg) == 2
+        assert len(weights) == 79
+        assert (
+            "vision_tower.vision_model.encoder.layers.1.self_attn.q_proj.weight"
+            in names
+        )
+        assert "vision_tower.vision_model.head.probe" in names
+        assert "multi_modal_projector.mm_input_projection_weight" in names
+        assert "language_model.model.layers.1.self_attn.q_proj.weight" in names
+        assert "language_model.model.layers.1.self_attn.q_norm.weight" in names
+        assert "language_model.model.norm.weight" in names
+        assert "language_model.lm_head.weight" in names
+
+    def test_gemma3_passthrough_stack_updates_nested_text_layer_count(self, tmp_path):
+        model_path = make_gemma3_picollama(tmp_path / "gemma3")
+        make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
+
+        config = MergeConfiguration(
+            merge_method="passthrough",
+            slices=[
+                OutputSliceDefinition(
+                    sources=[
+                        InputSliceDefinition(model=model_path, layer_range=[0, 2]),
+                    ]
+                ),
+                OutputSliceDefinition(
+                    sources=[
+                        InputSliceDefinition(model=model_path, layer_range=[0, 2]),
+                    ]
+                ),
+            ],
+            dtype="bfloat16",
+        )
+
+        def _check_config_layers(path: str):
+            out_cfg = AutoConfig.from_pretrained(path)
+            assert out_cfg.text_config.num_hidden_layers == 4
+            assert out_cfg.text_config.layer_types == [
+                "sliding_attention",
+                "sliding_attention",
+                "sliding_attention",
+                "sliding_attention",
             ]
 
         run_and_check_merge(config, validate=_check_config_layers)

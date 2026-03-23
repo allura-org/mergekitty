@@ -252,3 +252,43 @@ def make_mistral3_picollama(path: str, vocab_size: int = 64):
     model.config.architectures = ["Mistral3ForConditionalGeneration"]
     model.save_pretrained(path, safe_serialization=True)
     return str(path)
+
+
+def make_gemma3_picollama(path: str, vocab_size: int = 64):
+    try:
+        from transformers import Gemma3Config, Gemma3ForConditionalGeneration
+    except ImportError:
+        pytest.skip("transformers build does not include Gemma3")
+
+    cfg = Gemma3Config(
+        text_config={
+            "vocab_size": vocab_size,
+            "hidden_size": 32,
+            "intermediate_size": 64,
+            "num_hidden_layers": 2,
+            "num_attention_heads": 4,
+            "num_key_value_heads": 4,
+            "head_dim": 8,
+            "max_position_embeddings": 128,
+            "bos_token_id": 1,
+            "eos_token_id": 2,
+            "pad_token_id": 0,
+            "sliding_window": 32,
+        },
+        vision_config={
+            "hidden_size": 32,
+            "image_size": 16,
+            "intermediate_size": 64,
+            "num_attention_heads": 4,
+            "num_hidden_layers": 2,
+            "patch_size": 4,
+            "vision_use_head": False,
+        },
+        boi_token_index=vocab_size - 4,
+        eoi_token_index=vocab_size - 3,
+        image_token_index=vocab_size - 2,
+    )
+    model = Gemma3ForConditionalGeneration(cfg)
+    model.config.architectures = ["Gemma3ForConditionalGeneration"]
+    model.save_pretrained(path, safe_serialization=True)
+    return str(path)
