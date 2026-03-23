@@ -160,6 +160,58 @@ def make_qwen2vl_picollama(path: str, vocab_size: int = 64):
     return str(path)
 
 
+def make_qwen3_5_picollama(path: str, vocab_size: int = 64):
+    try:
+        from transformers import Qwen3_5Config, Qwen3_5ForConditionalGeneration
+    except ImportError:
+        pytest.skip("transformers build does not include Qwen3.5")
+
+    cfg = Qwen3_5Config(
+        text_config={
+            "vocab_size": vocab_size,
+            "hidden_size": 32,
+            "intermediate_size": 64,
+            "num_hidden_layers": 4,
+            "num_attention_heads": 4,
+            "num_key_value_heads": 2,
+            "head_dim": 8,
+            "linear_key_head_dim": 8,
+            "linear_value_head_dim": 8,
+            "linear_num_key_heads": 4,
+            "linear_num_value_heads": 4,
+            "max_position_embeddings": 128,
+            "layer_types": [
+                "linear_attention",
+                "linear_attention",
+                "linear_attention",
+                "full_attention",
+            ],
+            "bos_token_id": 1,
+            "eos_token_id": 2,
+            "pad_token_id": 0,
+        },
+        vision_config={
+            "depth": 2,
+            "hidden_size": 32,
+            "intermediate_size": 64,
+            "num_heads": 4,
+            "in_channels": 3,
+            "patch_size": 4,
+            "spatial_merge_size": 2,
+            "temporal_patch_size": 1,
+            "out_hidden_size": 32,
+        },
+        image_token_id=3,
+        video_token_id=4,
+        vision_start_token_id=5,
+        vision_end_token_id=6,
+    )
+    model = Qwen3_5ForConditionalGeneration(cfg)
+    model.config.architectures = ["Qwen3_5ForConditionalGeneration"]
+    model.save_pretrained(path, safe_serialization=True)
+    return str(path)
+
+
 def make_mistral3_picollama(path: str, vocab_size: int = 64):
     try:
         from transformers import Mistral3Config, Mistral3ForConditionalGeneration

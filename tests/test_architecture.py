@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from common import (
     make_mistral3_picollama,
     make_qwen2vl_picollama,
+    make_qwen3_5_picollama,
     make_tokenizer,
     run_and_check_merge,
 )
@@ -128,6 +129,64 @@ class TestMistral3Architecture:
         assert arch_info.num_layers(cfg) == 2
         assert "vision_tower.transformer.layers.1.attention.q_proj.weight" in names
         assert "language_model.model.layers.1.self_attn.q_proj.weight" in names
+
+
+class TestQwen3_5Architecture:
+    def test_qwen3_5_architecture_info_expands_vision_and_text_weights(self, tmp_path):
+        model_path = make_qwen3_5_picollama(tmp_path / "qwen3_5")
+        make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
+
+        cfg = AutoConfig.from_pretrained(model_path)
+        arch_info = get_architecture_info(cfg)
+        weights = arch_info.all_weights(cfg)
+        names = {weight.name for weight in weights}
+
+        assert arch_info.name() == "qwen3_5"
+        assert arch_info.num_layers(cfg) == 4
+        assert len(weights) == 89
+        assert "model.visual.blocks.1.attn.qkv.weight" in names
+        assert "model.visual.merger.linear_fc2.bias" in names
+        assert "model.language_model.layers.0.linear_attn.in_proj_qkv.weight" in names
+        assert "model.language_model.layers.3.self_attn.q_proj.weight" in names
+        assert "model.language_model.layers.0.self_attn.q_proj.weight" not in names
+        assert (
+            "model.language_model.layers.3.linear_attn.in_proj_qkv.weight" not in names
+        )
+        assert "model.language_model.norm.weight" in names
+        assert "lm_head.weight" in names
+
+    def test_qwen3_5_passthrough_updates_nested_text_layer_types(self, tmp_path):
+        model_path = make_qwen3_5_picollama(tmp_path / "qwen3_5")
+        make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(model_path)
+
+        config = MergeConfiguration(
+            merge_method="passthrough",
+            slices=[
+                OutputSliceDefinition(
+                    sources=[
+                        InputSliceDefinition(model=model_path, layer_range=[2, 4]),
+                    ]
+                ),
+                OutputSliceDefinition(
+                    sources=[
+                        InputSliceDefinition(model=model_path, layer_range=[0, 2]),
+                    ]
+                ),
+            ],
+            dtype="bfloat16",
+        )
+
+        def _check_config_layers(path: str):
+            out_cfg = AutoConfig.from_pretrained(path)
+            assert out_cfg.text_config.num_hidden_layers == 4
+            assert out_cfg.text_config.layer_types == [
+                "linear_attention",
+                "full_attention",
+                "linear_attention",
+                "linear_attention",
+            ]
+
+        run_and_check_merge(config, validate=_check_config_layers)
 
 
 class TestSliceConfigMetadata:

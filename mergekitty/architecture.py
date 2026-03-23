@@ -201,6 +201,8 @@ class JSONArchitectureDefinition(BaseModel, frozen=True):
     pre_weights: List[WeightInfo]
     pre_weight_templates: Optional[List[JSONWeightTemplateGroup]] = None
     layer_templates: JSONLayerTemplates
+    layer_type_templates: Optional[Dict[str, JSONLayerTemplates]] = None
+    layer_type_config_key: Optional[str] = None
     post_weights: List[WeightInfo]
     post_weight_templates: Optional[List[JSONWeightTemplateGroup]] = None
     procedural_spaces: Optional[List[ProceduralSpaceInfo]] = None
@@ -214,6 +216,10 @@ class JSONArchitectureDefinition(BaseModel, frozen=True):
         ):
             raise ValueError(
                 "match_model_type and match_model_type_config_key must be provided together"
+            )
+        if self.layer_type_templates is None and self.layer_type_config_key is not None:
+            raise ValueError(
+                "layer_type_config_key requires layer_type_templates to be provided"
             )
         return self
 
@@ -365,6 +371,48 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
             for index in range(repeat_count)
         ]
 
+    def _layer_type_config_key(self) -> Optional[str]:
+        if self.definition.layer_type_templates is None:
+            return None
+        if self.definition.layer_type_config_key is not None:
+            return self.definition.layer_type_config_key
+
+        num_layers_key = self.num_layers_config_key()
+        if "." in num_layers_key:
+            return f"{num_layers_key.rsplit('.', 1)[0]}.layer_types"
+        return "layer_types"
+
+    def _layer_type(self, index: int, config: PretrainedConfig) -> Optional[str]:
+        key = self._layer_type_config_key()
+        if key is None:
+            return None
+
+        layer_types = get_config_value(config, key)
+        return layer_types[index]
+
+    def _layer_template_weights(
+        self,
+        templates: JSONLayerTemplates,
+        index: int,
+        config: PretrainedConfig,
+    ) -> List[WeightInfo]:
+        if self.definition.num_experts_config_key is None:
+            return [
+                self._substitute(wi, config=config, layer_idx=index)
+                for wi in templates.weights
+            ]
+
+        expert_weights = [wi for wi in templates.weights if wi.is_sparse]
+        regular_weights = [wi for wi in templates.weights if not wi.is_sparse]
+        return [
+            self._substitute(wi, config=config, layer_idx=index)
+            for wi in regular_weights
+        ] + [
+            self._substitute(wi, config=config, layer_idx=index, expert_idx=expert_idx)
+            for wi in expert_weights
+            for expert_idx in range(self.num_experts(config))
+        ]
+
     def name(self) -> str:
         return self.definition.expected_model_type
 
@@ -380,28 +428,20 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
     def layer_weights(
         self, index: int, config: PretrainedConfig
     ) -> Optional[List[WeightInfo]]:
-        if self.definition.num_experts_config_key is None:
-            return [
-                self._substitute(wi, config=config, layer_idx=index)
-                for wi in self.definition.layer_templates.weights
-            ]
-        else:
-            expert_weights = [
-                wi for wi in self.definition.layer_templates.weights if wi.is_sparse
-            ]
-            regular_weights = [
-                wi for wi in self.definition.layer_templates.weights if not wi.is_sparse
-            ]
-            return [
-                self._substitute(wi, config=config, layer_idx=index)
-                for wi in regular_weights
-            ] + [
-                self._substitute(
-                    wi, config=config, layer_idx=index, expert_idx=expert_idx
+        res = self._layer_template_weights(
+            self.definition.layer_templates, index=index, config=config
+        )
+        if self.definition.layer_type_templates:
+            layer_type = self._layer_type(index, config)
+            templates = self.definition.layer_type_templates.get(layer_type)
+            if templates is None:
+                raise RuntimeError(
+                    f"Unsupported layer type {layer_type!r} for architecture {self.name()}"
                 )
-                for wi in expert_weights
-                for expert_idx in range(self.num_experts(config))
-            ]
+            res.extend(
+                self._layer_template_weights(templates, index=index, config=config)
+            )
+        return res
 
     def post_weights(self, config: PretrainedConfig) -> List[WeightInfo]:
         res = [
@@ -425,12 +465,24 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
         for idx in range(self.num_layers(config)):
             for s in self.definition.layer_templates.procedural_spaces or []:
                 res.append(self._substitute(s, config=config, layer_idx=idx))
+            if self.definition.layer_type_templates:
+                layer_type = self._layer_type(idx, config)
+                templates = self.definition.layer_type_templates.get(layer_type)
+                if templates is None:
+                    raise RuntimeError(
+                        f"Unsupported layer type {layer_type!r} for architecture {self.name()}"
+                    )
+                for s in templates.procedural_spaces or []:
+                    res.append(self._substitute(s, config=config, layer_idx=idx))
         for group in self.definition.post_weight_templates or []:
             for s in group.procedural_spaces or []:
                 res.extend(self._substitute_group(group, config, s))
         return res
 
     def has_defined_spaces(self) -> bool:
+        layer_type_templates = list(
+            (self.definition.layer_type_templates or {}).values()
+        )
         if (
             self.definition.procedural_spaces
             or any(
@@ -438,6 +490,7 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
                 for group in (self.definition.pre_weight_templates or [])
             )
             or self.definition.layer_templates.procedural_spaces
+            or any(template.procedural_spaces for template in layer_type_templates)
             or any(
                 group.procedural_spaces
                 for group in (self.definition.post_weight_templates or [])
@@ -452,6 +505,7 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
                 for wi in group.weights
             ]
             + self.definition.layer_templates.weights
+            + [wi for template in layer_type_templates for wi in template.weights]
             + self.definition.post_weights
             + [
                 wi

@@ -1,0 +1,172 @@
+{
+    "model_type": "qwen3_5",
+    "architectures": [
+        "Qwen3_5ForConditionalGeneration"
+    ],
+    "pre_weights": [
+        {
+            "name": "model.visual.patch_embed.proj.weight"
+        },
+        {
+            "name": "model.visual.patch_embed.proj.bias"
+        },
+        {
+            "name": "model.visual.pos_embed.weight"
+        },
+        {
+            "name": "model.visual.merger.norm.weight"
+        },
+        {
+            "name": "model.visual.merger.norm.bias"
+        },
+        {
+            "name": "model.visual.merger.linear_fc1.weight"
+        },
+        {
+            "name": "model.visual.merger.linear_fc1.bias"
+        },
+        {
+            "name": "model.visual.merger.linear_fc2.weight"
+        },
+        {
+            "name": "model.visual.merger.linear_fc2.bias"
+        },
+        {
+            "name": "model.language_model.embed_tokens.weight",
+            "is_embed": true
+        }
+    ],
+    "pre_weight_templates": [
+        {
+            "count_config_key": "vision_config.depth",
+            "index_name": "vision_layer_index",
+            "weights": [
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.norm1.weight"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.norm1.bias"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.norm2.weight"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.norm2.bias"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.attn.qkv.weight"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.attn.qkv.bias"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.attn.proj.weight"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.attn.proj.bias"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.mlp.linear_fc1.weight"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.mlp.linear_fc1.bias"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.mlp.linear_fc2.weight"
+                },
+                {
+                    "name": "model.visual.blocks.${vision_layer_index}.mlp.linear_fc2.bias"
+                }
+            ]
+        }
+    ],
+    "num_layers_config_key": "text_config.num_hidden_layers",
+    "layer_type_config_key": "text_config.layer_types",
+    "layer_templates": {
+        "weights": [
+            {
+                "name": "model.language_model.layers.${layer_index}.input_layernorm.weight"
+            },
+            {
+                "name": "model.language_model.layers.${layer_index}.mlp.gate_proj.weight"
+            },
+            {
+                "name": "model.language_model.layers.${layer_index}.mlp.up_proj.weight"
+            },
+            {
+                "name": "model.language_model.layers.${layer_index}.mlp.down_proj.weight"
+            },
+            {
+                "name": "model.language_model.layers.${layer_index}.post_attention_layernorm.weight"
+            }
+        ]
+    },
+    "layer_type_templates": {
+        "linear_attention": {
+            "weights": [
+                {
+                    "name": "model.language_model.layers.${layer_index}.linear_attn.dt_bias"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.linear_attn.A_log"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.linear_attn.conv1d.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.linear_attn.norm.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.linear_attn.out_proj.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.linear_attn.in_proj_qkv.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.linear_attn.in_proj_z.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.linear_attn.in_proj_b.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.linear_attn.in_proj_a.weight"
+                }
+            ]
+        },
+        "full_attention": {
+            "weights": [
+                {
+                    "name": "model.language_model.layers.${layer_index}.self_attn.q_proj.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.self_attn.k_proj.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.self_attn.v_proj.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.self_attn.o_proj.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.self_attn.q_norm.weight"
+                },
+                {
+                    "name": "model.language_model.layers.${layer_index}.self_attn.k_norm.weight"
+                }
+            ]
+        }
+    },
+    "post_weights": [
+        {
+            "name": "model.language_model.norm.weight"
+        },
+        {
+            "name": "lm_head.weight",
+            "is_embed": true,
+            "optional": true,
+            "tied_names": [
+                "model.language_model.embed_tokens.weight"
+            ]
+        }
+    ]
+}
