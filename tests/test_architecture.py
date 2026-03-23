@@ -288,3 +288,36 @@ class TestSliceConfigMetadata:
 
         assert out_cfg.num_hidden_layers == 2
         assert out_cfg.layer_types == ["sliding_attention", "sliding_attention"]
+
+
+class TestApertusArchitecture:
+    def test_apertus_architecture_info_expands_layer_weights(self):
+        cfg = SimpleNamespace(
+            architectures=["ApertusForCausalLM"],
+            model_type="apertus",
+            num_hidden_layers=2,
+        )
+
+        arch_info = get_architecture_info(cfg)
+        weights = arch_info.all_weights(cfg)
+        names = {weight.name for weight in weights}
+
+        assert arch_info.name() == "apertus"
+        assert arch_info.num_layers(cfg) == 2
+        assert len(weights) == 31
+        assert "model.layers.1.attention_layernorm.weight" in names
+        assert "model.layers.1.feedforward_layernorm.weight" in names
+        assert "model.layers.1.mlp.act_fn.alpha_n" in names
+        assert "model.layers.1.mlp.act_fn.alpha_p" in names
+        assert "model.layers.1.mlp.act_fn.beta" in names
+        assert "model.layers.1.mlp.act_fn.eps" in names
+        assert "model.layers.1.mlp.down_proj.weight" in names
+        assert "model.layers.1.mlp.up_proj.weight" in names
+        assert "model.layers.1.self_attn.q_norm.weight" in names
+        assert "model.layers.1.self_attn.k_norm.weight" in names
+        assert "model.layers.1.self_attn.q_proj.weight" in names
+        assert "model.layers.1.self_attn.k_proj.weight" in names
+        assert "model.layers.1.self_attn.v_proj.weight" in names
+        assert "model.layers.1.self_attn.o_proj.weight" in names
+        assert "model.norm.weight" in names
+        assert "lm_head.weight" in names
