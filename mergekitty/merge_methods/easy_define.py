@@ -16,6 +16,7 @@
 
 import inspect
 import typing
+from abc import update_abstractmethods
 from typing import Any, Dict, List, Optional
 
 import pydantic
@@ -123,6 +124,7 @@ def __merge_method(
                 )
 
     tt_fields = {}
+    tt_methods = {}
     tt_fields["gather_tensors"] = (MergeTensorInput, Field(...))
     if ("base_model" in used_kwargs) or use_base_tensor_arg:
         bm_ty = ModelReference if require_base_tensor else Optional[ModelReference]
@@ -141,17 +143,17 @@ def __merge_method(
     def _arguments(self) -> Dict[str, Task]:
         return {"tensors": self.gather_tensors}
 
-    tt_fields["arguments"] = _arguments
+    tt_methods["arguments"] = _arguments
 
     def _group_label(self) -> Optional[str]:
         return self.gather_tensors.group_label()
 
-    tt_fields["group_label"] = _group_label
+    tt_methods["group_label"] = _group_label
 
     def _uses_accelerator(self) -> bool:
         return True
 
-    tt_fields["uses_accelerator"] = _uses_accelerator
+    tt_methods["uses_accelerator"] = _uses_accelerator
 
     def _execute(self, tensors: Dict[ModelReference, torch.Tensor], **_kwargs):
         model_refs = set(tensors.keys())
@@ -179,10 +181,13 @@ def __merge_method(
             ]
         return func(tensors=tensors, **inner_kwargs)
 
-    tt_fields["execute"] = _execute
+    tt_methods["execute"] = _execute
 
     tt_name = f"{name.title().replace(' ', '')}MergeTask"
     tt_cls = pydantic.create_model(tt_name, __base__=Task[torch.Tensor], **tt_fields)
+    for method_name, method in tt_methods.items():
+        setattr(tt_cls, method_name, method)
+    update_abstractmethods(tt_cls)
 
     mm_fields = {}
 
