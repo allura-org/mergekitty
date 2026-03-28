@@ -40,7 +40,7 @@ from mergekitty.io.tasks import (
     TensorWriterTask,
 )
 from mergekitty.merge_methods import MergeMethod
-from mergekitty.options import MergeOptions
+from mergekitty.options import MergeOptions, tensor_load_device
 from mergekitty.tokenizer import BuildTokenizer, PermutedEmbeddings
 
 
@@ -176,7 +176,7 @@ class MergePlanner:
         gather_tensors = GatherTensors(
             weight_info=ImmutableMap(data=dict(zip(models, weights_in))),
             dtype=self.config.dtype,
-            device="cuda" if self.options.read_to_gpu else None,
+            device=tensor_load_device(self.options),
         )
 
         tensor_input_task = gather_tensors

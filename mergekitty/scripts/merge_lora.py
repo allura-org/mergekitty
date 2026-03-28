@@ -33,7 +33,7 @@ from mergekitty.io.tasks import (
     SaveTensor,
     TensorWriterTask,
 )
-from mergekitty.options import MergeOptions, add_merge_options
+from mergekitty.options import MergeOptions, add_merge_options, tensor_load_device
 
 _ADAPTER_PREFIX = "base_model.model."
 _FULL_WEIGHT_SUFFIXES = (
@@ -280,7 +280,7 @@ def plan_merge(
     merged_vocab_size = base_vocab_size
 
     for weight in arch_info.all_weights(base_config):
-        device = "cuda" if options.read_to_gpu else None
+        device = tensor_load_device(options)
         lora_module_name = _matching_module_name(
             weight,
             {
@@ -457,8 +457,8 @@ def run_merge_lora(
 
     exec = build_executor(
         tasks=plan.tasks,
-        math_device="cuda" if merge_options.cuda else "cpu",
-        storage_device="cuda" if merge_options.low_cpu_memory else "cpu",
+        math_device=merge_options.compute_device,
+        storage_device=merge_options.storage_device,
         executor=merge_options.executor,
     )
     exec.execute()

@@ -221,6 +221,6 @@ class ParallelismExecutor(ExecutorBase):
         self._log_task_phase(task, "execute", time.perf_counter() - execute_start)
 
         store_start = time.perf_counter()
-        prepared = self._prepare_result(result, execution_device)
+        prepared = self._prepare_result(task, result, execution_device)
         self._log_task_phase(task, "store", time.perf_counter() - store_start)
         return prepared

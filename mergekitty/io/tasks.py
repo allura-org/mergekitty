@@ -142,6 +142,15 @@ class LoadTensor(Task[Optional[torch.Tensor]]):
         shard_path = loader.index.tensor_paths[name]
         return _normalized_shard_name(shard_path)
 
+    def result_storage_device(
+        self,
+        execution_device: torch.device,
+        default_storage_device: torch.device,
+    ) -> torch.device:
+        if self.device is None:
+            return default_storage_device
+        return torch.device(self.device)
+
 
 class GatherTensors(Task[Dict[ModelReference, torch.Tensor]]):
     weight_info: ImmutableMap[ModelReference, WeightInfo]

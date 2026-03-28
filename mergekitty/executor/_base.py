@@ -124,8 +124,16 @@ class ExecutorBase:
 
         return value
 
-    def _prepare_result(self, result: Any, execution_device: torch.device) -> Any:
-        storage_device = self._storage_device_for(execution_device)
+    def _prepare_result(
+        self,
+        task: Task,
+        result: Any,
+        execution_device: torch.device,
+    ) -> Any:
+        storage_device = task.result_storage_device(
+            execution_device=execution_device,
+            default_storage_device=self._storage_device_for(execution_device),
+        )
         if isinstance(result, torch.Tensor) and result.device != storage_device:
             return result.to(storage_device)
         return result

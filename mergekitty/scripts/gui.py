@@ -28,9 +28,10 @@ def do_merge(
     config = MergeConfiguration.model_validate(yaml.safe_load(yaml_config))
     options = MergeOptions(
         allow_crimes=False,
-        allow_remote_code=True,
+        trust_remote_code=True,
         lazy_unpickle=True,
-        cuda=torch.cuda.is_available(),
+        compute_device="cuda" if torch.cuda.is_available() else "cpu",
+        storage_device="cuda" if torch.cuda.is_available() else "cpu",
     )
     with open(log_file, "w") as f:
         with redirect_stdout(f), redirect_stderr(f):

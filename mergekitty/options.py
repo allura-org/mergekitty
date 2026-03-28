@@ -17,7 +17,7 @@
 import functools
 import os
 import typing
-from typing import Any, Callable, Optional, Union
+from typing import Any, Callable, Literal, Optional, Union
 
 import click
 from click.core import Context, Parameter
@@ -30,8 +30,9 @@ class MergeOptions(BaseModel):
     allow_crimes: bool = False
     transformers_cache: Optional[str] = None
     lora_merge_cache: Optional[str] = None
-    cuda: bool = False
-    low_cpu_memory: bool = False
+    compute_device: Literal["cpu", "cuda"] = "cpu"
+    storage_device: Literal["cpu", "cuda"] = "cpu"
+    load_to_compute: bool = False
     out_shard_size: int = parse_kmb("5B")
     copy_tokenizer: bool = True
     clone_tensors: bool = False
@@ -41,7 +42,6 @@ class MergeOptions(BaseModel):
     write_model_card: bool = True
     safe_serialization: bool = True
     quiet: bool = False
-    read_to_gpu: bool = False
     executor: str = os.environ.get("MERGEKITTY_EXECUTOR", "single")
 
 
@@ -49,8 +49,9 @@ OPTION_HELP = {
     "allow_crimes": "Allow mixing architectures",
     "transformers_cache": "Override storage path for downloaded models",
     "lora_merge_cache": "Path to store merged LORA models",
-    "cuda": "Perform matrix arithmetic on GPU",
-    "low_cpu_memory": "Store results and intermediate values on GPU. Useful if VRAM > RAM",
+    "compute_device": "Move tensors onto this device for merge computations",
+    "storage_device": "Load tensors onto this device and return completed tensors to it between compute steps",
+    "load_to_compute": "Load tensors directly onto the compute device before merge operations",
     "out_shard_size": "Number of parameters per output shard  [default: 5B]",
     "copy_tokenizer": "Copy a tokenizer to the output",
     "clone_tensors": "Clone tensors before saving, to allow multiple occurrences of the same layer",
@@ -60,7 +61,6 @@ OPTION_HELP = {
     "write_model_card": "Output README.md containing details of the merge",
     "safe_serialization": "Save output in safetensors. Do this, don't poison the world with more pickled models.",
     "quiet": "Suppress progress bars and other non-essential output",
-    "read_to_gpu": "Read model weights directly to GPU",
     "executor": "Executor implementation to use (single or parallel)",
 }
 
@@ -72,6 +72,19 @@ class ShardSizeParamType(click.ParamType):
         self, value: Any, param: Optional[Parameter], ctx: Optional[Context]
     ) -> int:
         return parse_kmb(value)
+
+
+def tensor_load_device(options: MergeOptions) -> str:
+    if options.load_to_compute:
+        return options.compute_device
+    return options.storage_device
+
+
+def _resolve_click_type(annotation: Any) -> Any:
+    origin = typing.get_origin(annotation)
+    if origin is typing.Literal:
+        return click.Choice(typing.get_args(annotation), case_sensitive=False)
+    return annotation
 
 
 def add_merge_options(f: Callable) -> Callable:
@@ -96,6 +109,8 @@ def add_merge_options(f: Callable) -> Callable:
 
         if field_name == "out_shard_size":
             field_type = ShardSizeParamType()
+        else:
+            field_type = _resolve_click_type(field_type)
 
         arg_name = field_name.replace("_", "-")
         if field_type is bool:

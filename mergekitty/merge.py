@@ -93,8 +93,8 @@ def run_merge(
 
     exec = build_executor(
         tasks=targets,
-        math_device="cuda" if options.cuda else "cpu",
-        storage_device="cuda" if options.low_cpu_memory else "cpu",
+        math_device=options.compute_device,
+        storage_device=options.storage_device,
         executor=options.executor,
     )
 

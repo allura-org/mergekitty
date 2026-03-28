@@ -108,6 +108,7 @@ class SingleThreadedExecutor(ExecutorBase):
 
             store_start = time.perf_counter()
             res = self._prepare_result(
+                task,
                 result,
                 execution_device=self.math_device
                 if use_math_device

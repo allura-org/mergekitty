@@ -6,8 +6,24 @@ from common import make_picollama, make_tokenizer
 from peft import LoraConfig, PeftModel, get_peft_model
 from transformers import AutoConfig, AutoTokenizer, LlamaForCausalLM
 
+from mergekitty.common import AdapterReference, ModelPath, ModelReference
 from mergekitty.io import LazyTensorLoader
-from mergekitty.scripts.merge_lora import main
+from mergekitty.io.tasks import LoadTensor
+from mergekitty.options import MergeOptions
+from mergekitty.scripts.merge_lora import _reconstruct_invocation, main, plan_merge
+from mergekitty.task import Task
+
+
+def _walk_tasks(tasks: list[Task]):
+    seen = set()
+    stack = list(tasks)
+    while stack:
+        task = stack.pop()
+        if task in seen:
+            continue
+        seen.add(task)
+        yield task
+        stack.extend(task.arguments().values())
 
 
 def _build_adapter(
@@ -93,7 +109,16 @@ class TestMergeLora:
         output_path = tmp_path / "merged"
         runner = CliRunner()
         result = runner.invoke(
-            main, [base_model_path, str(adapter_path), str(output_path)]
+            main,
+            [
+                base_model_path,
+                str(adapter_path),
+                str(output_path),
+                "--compute-device",
+                "cpu",
+                "--storage-device",
+                "cpu",
+            ],
         )
 
         assert result.exit_code == 0, result.output
@@ -148,3 +173,77 @@ class TestMergeLora:
 
         readme = (output_path / "README.md").read_text(encoding="utf-8")
         assert "extended vocabulary" in readme
+
+    def test_plan_merge_loads_lora_tensors_onto_storage_device(self, tmp_path):
+        base_model_path = make_picollama(tmp_path / "base-model")
+        make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(base_model_path)
+
+        adapter_path = tmp_path / "adapter"
+        _build_adapter(
+            base_model_path,
+            str(adapter_path),
+            target_modules=["q_proj"],
+        )
+
+        plan = plan_merge(
+            base_model_ref=ModelReference.model_validate(base_model_path),
+            adapter_ref=AdapterReference(
+                adapter=ModelPath.model_validate(str(adapter_path))
+            ),
+            output_path=str(tmp_path / "merged"),
+            options=MergeOptions(storage_device="cuda"),
+        )
+
+        load_tasks = [
+            task for task in _walk_tasks(plan.tasks) if isinstance(task, LoadTensor)
+        ]
+        assert load_tasks
+        assert {task.device for task in load_tasks} == {"cuda"}
+
+    def test_plan_merge_can_load_lora_tensors_onto_compute_device(self, tmp_path):
+        base_model_path = make_picollama(tmp_path / "base-model")
+        make_tokenizer(vocab_size=64, added_tokens=[]).save_pretrained(base_model_path)
+
+        adapter_path = tmp_path / "adapter"
+        _build_adapter(
+            base_model_path,
+            str(adapter_path),
+            target_modules=["q_proj"],
+        )
+
+        plan = plan_merge(
+            base_model_ref=ModelReference.model_validate(base_model_path),
+            adapter_ref=AdapterReference(
+                adapter=ModelPath.model_validate(str(adapter_path))
+            ),
+            output_path=str(tmp_path / "merged"),
+            options=MergeOptions(
+                compute_device="cuda",
+                storage_device="cpu",
+                load_to_compute=True,
+            ),
+        )
+
+        load_tasks = [
+            task for task in _walk_tasks(plan.tasks) if isinstance(task, LoadTensor)
+        ]
+        assert load_tasks
+        assert {task.device for task in load_tasks} == {"cuda"}
+
+    def test_reconstruct_invocation_uses_new_device_flags(self):
+        invocation = _reconstruct_invocation(
+            base_model="base-model",
+            adapter_model="adapter-model",
+            options=MergeOptions(
+                compute_device="cuda",
+                storage_device="cpu",
+                load_to_compute=True,
+            ),
+        )
+
+        assert "--compute-device cuda" in invocation
+        assert "--load-to-compute" in invocation
+        assert "--storage-device" not in invocation
+        assert "--cuda" not in invocation
+        assert "--read-to-gpu" not in invocation
+        assert "--low-cpu-memory" not in invocation

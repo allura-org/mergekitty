@@ -22,6 +22,8 @@ Classes:
 
 from abc import ABC, abstractmethod
 from typing import Dict, Optional
+
+import torch
 from pydantic import BaseModel
 from typing_extensions import Generic, TypeVar
 
@@ -101,3 +103,13 @@ class Task(ABC, BaseModel, Generic[ValueT], frozen=True, arbitrary_types_allowed
         acceleration (such as on a GPU).
         """
         return False
+
+    def result_storage_device(
+        self,
+        execution_device: torch.device,
+        default_storage_device: torch.device,
+    ) -> torch.device:
+        """
+        Returns the device on which this task's result should rest between tasks.
+        """
+        return default_storage_device

@@ -199,9 +199,13 @@ def main(
     """Create a Mixture of Experts model by combining the pretrained weights of multiple models."""
     logging.basicConfig(level=logging.INFO if verbose else logging.WARNING)
 
-    if merge_options.cuda:
+    if (
+        merge_options.compute_device != "cpu"
+        or merge_options.storage_device != "cpu"
+        or merge_options.load_to_compute
+    ):
         logging.warning(
-            '--cuda is a no-op for mergekitty-moe, use "--device cuda" instead'
+            '--compute-device/--storage-device/--load-to-compute are no-ops for mergekitty-moe, use "--device cuda" instead'
         )
 
     with open(config_path, "r", encoding="utf-8") as file:

@@ -6,18 +6,6 @@
 
 Forked from [mergekit](https://github.com/arcee-ai/mergekit) (originally by Charles Goddard, then maintained by Arcee.ai). The original project switched to a BSL license after a ton of community contribution, then switched back to LGPL but added a CLA that lets them relicense at will. So here we are.
 
-## What changed?
-
-A few things from upstream mergekit:
-
-- All names/imports/scripts renamed to `mergekitty` (find-replace and you're good)
-- VLM support with templated pre/post-weights (architecture files are incompatible with mergekit's)
-- `tokenizer_source` now defaults to `"base"`; legacy tokenizer copying is gone
-- `nuslerp` → `slerp` (old slerp removed). Supports both `t` (SLERP) and `weight` (NuSLERP) params
-- `bakllama`, `mergekit-legacy`, and `mergekit-evolve` removed
-- LoRA merging script via `mergekitty-merge-lora`
-- Switched to `ruff` for formatting/linting and `hatch` for builds
-
 ## Why merge models?
 
 Model merging is chaos magick. Done right, the result is better than any of its inputs. It's been proven repeatedly and nobody fully understands why. Ship it.
@@ -50,7 +38,7 @@ pip install -e .
 ## Usage
 
 ```sh
-mergekitty-yaml path/to/config.yml ./output-model [--cuda] [--lazy-unpickle] [--allow-crimes]
+mergekitty-yaml path/to/config.yml ./output-model [--compute-device cuda] [--storage-device cuda] [--load-to-compute] [--lazy-unpickle] [--allow-crimes]
 ```
 
 Run `mergekitty-yaml --help` for the full list of options.
@@ -223,7 +211,7 @@ uv tool install hatch
 hatch test              # run tests
 hatch run lint          # ruff linting
 hatch run format        # ruff formatting
-hatch run mergekitty-yaml examples/bio-merge.yml ./bio-merge --cuda
+hatch run mergekitty-yaml examples/bio-merge.yml ./bio-merge --compute-device cuda
 ```
 
 ## Citation
