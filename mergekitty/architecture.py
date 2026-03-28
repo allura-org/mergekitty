@@ -17,6 +17,7 @@
 import importlib.resources
 import string
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
 from typing import Dict, List, Optional, Tuple, Union
 
 from pydantic import BaseModel, Field, model_validator
@@ -147,7 +148,8 @@ class ArchitectureInfo(ABC):
         return False
 
 
-class ConfiguredArchitectureInfo(BaseModel, frozen=True, arbitrary_types_allowed=True):
+@dataclass(frozen=True)
+class ConfiguredArchitectureInfo:
     info: ArchitectureInfo
     config: PretrainedConfig
 

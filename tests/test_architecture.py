@@ -12,11 +12,14 @@ from transformers import AutoConfig, Qwen2Config, Qwen2ForCausalLM
 
 from mergekitty.architecture import get_architecture_info
 from mergekitty.config import (
+    InputModelDefinition,
     InputSliceDefinition,
     MergeConfiguration,
     OutputSliceDefinition,
 )
 from mergekitty.merge import _model_out_config
+from mergekitty.options import MergeOptions
+from mergekitty.plan import MergePlanner
 
 
 class TestQwen2VLArchitecture:
@@ -155,6 +158,31 @@ class TestQwen3_5Architecture:
         )
         assert "model.language_model.norm.weight" in names
         assert "lm_head.weight" in names
+
+    def test_qwen3_5_models_input_normalizes_into_full_layer_slice(self, tmp_path):
+        model_path = make_qwen3_5_picollama(tmp_path / "qwen3_5")
+        cfg = AutoConfig.from_pretrained(model_path)
+        arch_info = get_architecture_info(cfg)
+        config = MergeConfiguration(
+            merge_method="passthrough",
+            models=[InputModelDefinition(model=model_path)],
+            dtype="bfloat16",
+        )
+        planner = MergePlanner(
+            config=config,
+            arch_info=arch_info,
+            options=MergeOptions(),
+            out_model_config=_model_out_config(config, arch_info),
+        )
+
+        planner.normalize_config()
+
+        assert config.models is None
+        assert config.slices is not None
+        assert len(config.slices) == 1
+        assert len(config.slices[0].sources) == 1
+        assert str(config.slices[0].sources[0].model) == model_path
+        assert config.slices[0].sources[0].layer_range == (0, 4)
 
     def test_qwen3_5_passthrough_updates_nested_text_layer_types(self, tmp_path):
         model_path = make_qwen3_5_picollama(tmp_path / "qwen3_5")
