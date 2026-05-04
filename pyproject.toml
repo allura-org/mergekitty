@@ -74,6 +74,7 @@ lint-fix = "ruff check --fix --unsafe-fixes"
 format = "ruff format"
 
 [tool.hatch.envs.hatch-test]
+features = ["gradio"]
 extra-dependencies = ["pytest"]
 
 [tool.hatch.envs.hatch-test.scripts]
