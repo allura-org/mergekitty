@@ -1,0 +1,307 @@
+{
+    "model_type": "deepseek_v4",
+    "architectures": [
+        "DeepseekV4ForCausalLM"
+    ],
+    "pre_weights": [
+        {
+            "name": "embed.weight",
+            "is_embed": true
+        }
+    ],
+    "post_weights": [
+        {
+            "name": "norm.weight"
+        },
+        {
+            "name": "hc_head_base"
+        },
+        {
+            "name": "hc_head_fn"
+        },
+        {
+            "name": "hc_head_scale"
+        },
+        {
+            "name": "head.weight",
+            "is_embed": true,
+            "optional": true,
+            "tied_names": [
+                "embed.weight"
+            ]
+        }
+    ],
+    "post_weight_templates": [
+        {
+            "count_config_key": [
+                "num_hash_layers"
+            ],
+            "index_name": [
+                "mtp_index"
+            ],
+            "weights": [
+                {
+                    "name": "mtp.${mtp_index}.hc_attn_base"
+                },
+                {
+                    "name": "mtp.${mtp_index}.hc_ffn_base"
+                },
+                {
+                    "name": "mtp.${mtp_index}.hc_attn_fn"
+                },
+                {
+                    "name": "mtp.${mtp_index}.hc_attn_scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.hc_ffn_fn"
+                },
+                {
+                    "name": "mtp.${mtp_index}.hc_ffn_scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.attn_sink"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.wq_a.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.wq_a.scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.wq_b.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.wq_b.scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.q_norm.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.wo_a.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.wo_a.scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.wkv.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.wkv.scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.kv_norm.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.wo_b.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn.wo_b.scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.attn_norm.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn_norm.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.shared_experts.w1.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.shared_experts.w1.scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.shared_experts.w3.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.shared_experts.w3.scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.shared_experts.w2.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.shared_experts.w2.scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.gate.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.gate.bias"
+                },
+                {
+                    "name": "mtp.${mtp_index}.main_proj.weight"
+                },
+                {
+                    "name": "mtp.${mtp_index}.main_proj.scale"
+                },
+                {
+                    "name": "mtp.${mtp_index}.main_norm.weight"
+                }
+            ]
+        },
+        {
+            "count_config_key": [
+                "num_hash_layers",
+                "n_routed_experts"
+            ],
+            "index_name": [
+                "mtp_index",
+                "mtp_expert_index"
+            ],
+            "weights": [
+                {
+                    "name": "mtp.${mtp_index}.ffn.experts.${mtp_expert_index}.w1.weight",
+                    "is_sparse": true
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.experts.${mtp_expert_index}.w1.scale",
+                    "is_sparse": true
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.experts.${mtp_expert_index}.w3.weight",
+                    "is_sparse": true
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.experts.${mtp_expert_index}.w3.scale",
+                    "is_sparse": true
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.experts.${mtp_expert_index}.w2.weight",
+                    "is_sparse": true
+                },
+                {
+                    "name": "mtp.${mtp_index}.ffn.experts.${mtp_expert_index}.w2.scale",
+                    "is_sparse": true
+                }
+            ]
+        },
+        {
+            "count_config_key": [
+                "num_hash_layers"
+            ],
+            "index_name": [
+                "mtp_last_index"
+            ],
+            "is_last_index": true,
+            "weights": [
+                {
+                    "name": "mtp.${mtp_last_index}.hc_head_base"
+                },
+                {
+                    "name": "mtp.${mtp_last_index}.hc_head_fn"
+                },
+                {
+                    "name": "mtp.${mtp_last_index}.hc_head_scale"
+                },
+                {
+                    "name": "mtp.${mtp_last_index}.norm.weight"
+                },
+                {
+                    "name": "mtp.${mtp_last_index}.markov_head.markov_w1.weight"
+                },
+                {
+                    "name": "mtp.${mtp_last_index}.markov_head.markov_w2.weight"
+                },
+                {
+                    "name": "mtp.${mtp_last_index}.confidence_head.proj.weight"
+                }
+            ]
+        }
+    ],
+    "num_layers_config_key": "num_hidden_layers",
+    "num_experts_config_key": "n_routed_experts",
+    "layer_templates": {
+        "weights": [
+            {
+                "name": "layers.${layer_index}.attn_norm.weight"
+            },
+            {
+                "name": "layers.${layer_index}.attn.attn_sink"
+            },
+            {
+                "name": "layers.${layer_index}.attn.wq_a.weight"
+            },
+            {
+                "name": "layers.${layer_index}.attn.wq_a.scale"
+            },
+            {
+                "name": "layers.${layer_index}.attn.wq_b.weight"
+            },
+            {
+                "name": "layers.${layer_index}.attn.wq_b.scale"
+            },
+            {
+                "name": "layers.${layer_index}.attn.q_norm.weight"
+            },
+            {
+                "name": "layers.${layer_index}.attn.wo_a.weight"
+            },
+            {
+                "name": "layers.${layer_index}.attn.wo_a.scale"
+            },
+            {
+                "name": "layers.${layer_index}.attn.wkv.weight"
+            },
+            {
+                "name": "layers.${layer_index}.attn.wkv.scale"
+            },
+            {
+                "name": "layers.${layer_index}.attn.kv_norm.weight"
+            },
+            {
+                "name": "layers.${layer_index}.attn.wo_b.weight"
+            },
+            {
+                "name": "layers.${layer_index}.attn.wo_b.scale"
+            },
+            {
+                "name": "layers.${layer_index}.ffn_norm.weight"
+            },
+            {
+                "name": "layers.${layer_index}.ffn.shared_experts.w1.weight"
+            },
+            {
+                "name": "layers.${layer_index}.ffn.shared_experts.w1.scale"
+            },
+            {
+                "name": "layers.${layer_index}.ffn.shared_experts.w3.weight"
+            },
+            {
+                "name": "layers.${layer_index}.ffn.shared_experts.w3.scale"
+            },
+            {
+                "name": "layers.${layer_index}.ffn.shared_experts.w2.weight"
+            },
+            {
+                "name": "layers.${layer_index}.ffn.shared_experts.w2.scale"
+            },
+            {
+                "name": "layers.${layer_index}.ffn.gate.weight"
+            },
+            {
+                "name": "layers.${layer_index}.ffn.experts.${expert_index}.w1.weight",
+                "is_sparse": true
+            },
+            {
+                "name": "layers.${layer_index}.ffn.experts.${expert_index}.w1.scale",
+                "is_sparse": true
+            },
+            {
+                "name": "layers.${layer_index}.ffn.experts.${expert_index}.w3.weight",
+                "is_sparse": true
+            },
+            {
+                "name": "layers.${layer_index}.ffn.experts.${expert_index}.w3.scale",
+                "is_sparse": true
+            },
+            {
+                "name": "layers.${layer_index}.ffn.experts.${expert_index}.w2.weight",
+                "is_sparse": true
+            },
+            {
+                "name": "layers.${layer_index}.ffn.experts.${expert_index}.w2.scale",
+                "is_sparse": true
+            }
+        ]
+    },
+    "num_mtp_layers_config_key": "num_hash_layers"
+}

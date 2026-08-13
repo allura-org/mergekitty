@@ -15,10 +15,11 @@
 # along with this program. If not, see http://www.gnu.org/licenses/.
 
 import importlib.resources
+import itertools
 import string
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Sequence, Tuple, Union
 
 from pydantic import BaseModel, Field, model_validator
 from transformers import PretrainedConfig
@@ -183,8 +184,8 @@ class JSONLayerTemplates(BaseModel, frozen=True):
 class JSONWeightTemplateGroup(BaseModel, frozen=True):
     weights: List[WeightInfo]
     procedural_spaces: Optional[List[ProceduralSpaceInfo]] = None
-    count_config_key: Optional[str] = None
-    index_name: Optional[str] = None
+    count_config_key: Optional[Union[str, List[str]]] = None
+    index_name: Optional[Union[str, List[str]]] = None
 
     @model_validator(mode="after")
     def validate_repeat_fields(self):
@@ -192,7 +193,28 @@ class JSONWeightTemplateGroup(BaseModel, frozen=True):
             raise ValueError(
                 "count_config_key and index_name must be provided together"
             )
+        if self.count_config_key is not None:
+            ck = self.count_config_key if isinstance(self.count_config_key, list) else [self.count_config_key]
+            in_ = self.index_name if isinstance(self.index_name, list) else [self.index_name]
+            if len(ck) != len(in_):
+                raise ValueError(
+                    "count_config_key and index_name must have the same length when both are lists"
+                )
         return self
+
+    def _config_keys(self) -> List[str]:
+        if self.count_config_key is None:
+            return []
+        if isinstance(self.count_config_key, list):
+            return self.count_config_key
+        return [self.count_config_key]
+
+    def _index_names(self) -> List[str]:
+        if self.index_name is None:
+            return []
+        if isinstance(self.index_name, list):
+            return self.index_name
+        return [self.index_name]
 
 
 class JSONArchitectureDefinition(BaseModel, frozen=True):
@@ -360,18 +382,23 @@ class JsonArchitectureInfo(ArchitectureInfo, BaseModel, frozen=True):
         config: PretrainedConfig,
         item: Union[WeightInfo, ProceduralSpaceInfo],
     ) -> List[Union[WeightInfo, ProceduralSpaceInfo]]:
-        if not group.count_config_key:
+        config_keys = group._config_keys()
+        index_names = group._index_names()
+        if not config_keys:
             return [self._substitute(item, config=config)]
 
-        repeat_count = get_config_value(config, group.count_config_key)
-        return [
-            self._substitute(
-                item,
-                config=config,
-                extra_substitutions={group.index_name: index},
+        repeat_counts = [get_config_value(config, key) for key in config_keys]
+        result: List[Union[WeightInfo, ProceduralSpaceInfo]] = []
+        for combo in itertools.product(*(range(n) for n in repeat_counts)):
+            substitutions = dict(zip(index_names, combo))
+            result.append(
+                self._substitute(
+                    item,
+                    config=config,
+                    extra_substitutions=substitutions,
+                )
             )
-            for index in range(repeat_count)
-        ]
+        return result
 
     def _layer_type_config_key(self) -> Optional[str]:
         if self.definition.layer_type_templates is None:
