@@ -1,0 +1,137 @@
+{
+    "model_type": "gemma4",
+    "architectures": [
+        "Gemma4ForConditionalGeneration"
+    ],
+    "pre_weights": [
+        {
+            "name": "vision_tower.patch_embedder.input_proj.weight"
+        },
+        {
+            "name": "vision_tower.patch_embedder.position_embedding_table"
+        },
+        {
+            "name": "vision_tower.std_bias"
+        },
+        {
+            "name": "vision_tower.std_scale"
+        },
+        {
+            "name": "embed_vision.embedding_projection.weight"
+        },
+        {
+            "name": "language_model.embed_tokens.weight",
+            "is_embed": true
+        }
+    ],
+    "pre_weight_templates": [
+        {
+            "count_config_key": "vision_config.num_hidden_layers",
+            "index_name": "vision_layer_index",
+            "weights": [
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.input_layernorm.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.post_attention_layernorm.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.pre_feedforward_layernorm.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.post_feedforward_layernorm.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.self_attn.k_norm.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.self_attn.q_norm.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.self_attn.k_proj.linear.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.self_attn.o_proj.linear.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.self_attn.q_proj.linear.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.self_attn.v_proj.linear.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.mlp.gate_proj.linear.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.mlp.up_proj.linear.weight"
+                },
+                {
+                    "name": "vision_tower.encoder.layers.${vision_layer_index}.mlp.down_proj.linear.weight"
+                }
+            ]
+        }
+    ],
+    "num_layers_config_key": "text_config.num_hidden_layers",
+    "layer_templates": {
+        "weights": [
+            {
+                "name": "language_model.layers.${layer_index}.input_layernorm.weight"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.layer_scalar"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.mlp.down_proj.weight"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.mlp.gate_proj.weight"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.mlp.up_proj.weight"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.post_attention_layernorm.weight"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.post_feedforward_layernorm.weight",
+                "optional": true
+            },
+            {
+                "name": "language_model.layers.${layer_index}.pre_feedforward_layernorm.weight",
+                "optional": true
+            },
+            {
+                "name": "language_model.layers.${layer_index}.self_attn.k_norm.weight"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.self_attn.k_proj.weight"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.self_attn.o_proj.weight"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.self_attn.q_norm.weight"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.self_attn.q_proj.weight"
+            },
+            {
+                "name": "language_model.layers.${layer_index}.self_attn.v_proj.weight",
+                "optional": true
+            }
+        ]
+    },
+    "post_weights": [
+        {
+            "name": "language_model.norm.weight"
+        },
+        {
+            "name": "lm_head.weight",
+            "is_embed": true,
+            "optional": true,
+            "tied_names": [
+                "language_model.embed_tokens.weight"
+            ]
+        }
+    ]
+}
