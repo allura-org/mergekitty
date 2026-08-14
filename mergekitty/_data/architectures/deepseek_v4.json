@@ -34,7 +34,7 @@
     "post_weight_templates": [
         {
             "count_config_key": [
-                "num_hash_layers"
+                "num_nextn_predict_layers"
             ],
             "index_name": [
                 "mtp_index"
@@ -140,7 +140,7 @@
         },
         {
             "count_config_key": [
-                "num_hash_layers",
+                "num_nextn_predict_layers",
                 "n_routed_experts"
             ],
             "index_name": [
@@ -176,7 +176,7 @@
         },
         {
             "count_config_key": [
-                "num_hash_layers"
+                "num_nextn_predict_layers"
             ],
             "index_name": [
                 "mtp_last_index"
@@ -303,5 +303,5 @@
             }
         ]
     },
-    "num_mtp_layers_config_key": "num_hash_layers"
+    "num_mtp_layers_config_key": "num_nextn_predict_layers"
 }
