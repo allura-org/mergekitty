@@ -113,6 +113,17 @@ class LoadTensor(Task[Optional[torch.Tensor]]):
         for name in all_names:
             if name in loader.index.tensor_paths:
                 return name
+            # Some checkpoints (e.g. Gemma 3/4 multimodal) nest everything
+            # one level deeper under a top-level "model." prefix that isn't
+            # reflected in the architecture template names.
+            if not name.startswith("model."):
+                candidate = f"model.{name}"
+                if candidate in loader.index.tensor_paths:
+                    return candidate
+            elif name.startswith("model."):
+                candidate = name[len("model."):]
+                if candidate in loader.index.tensor_paths:
+                    return candidate
         return None
 
     def execute(self) -> Optional[torch.Tensor]:
