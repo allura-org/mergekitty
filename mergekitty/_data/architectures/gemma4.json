@@ -126,7 +126,7 @@
             "name": "model.language_model.norm.weight"
         },
         {
-            "name": "model.lm_head.weight",
+            "name": "lm_head.weight",
             "is_embed": true,
             "optional": true,
             "tied_names": [
