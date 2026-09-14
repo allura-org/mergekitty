@@ -38,6 +38,7 @@ from mergekitty.io.tasks import (
     ReturnTensor,
     SaveTensor,
     TensorWriterTask,
+    resolve_tensor_name,
 )
 from mergekitty.merge_methods import MergeMethod
 from mergekitty.options import MergeOptions, tensor_load_device
@@ -139,10 +140,12 @@ class MergePlanner:
             any_weight = False
             for model, w_in in zip(models, weights_in):
                 index = LoaderCache().get(model).index
-                if any(
-                    name in index.tensor_paths
-                    for name in [w_in.name] + (w_in.aliases or [])
-                ):
+                if resolve_tensor_name(
+                    index,
+                    w_in.name,
+                    aliases=w_in.aliases,
+                    tied_names=w_in.tied_names,
+                ) is not None:
                     any_weight = True
                     break
 

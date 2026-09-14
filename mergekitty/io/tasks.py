@@ -107,24 +107,9 @@ class LoadTensor(Task[Optional[torch.Tensor]]):
         return {}
 
     def _resolve_name(self, loader: LazyTensorLoader) -> Optional[str]:
-        all_names = (
-            [self.tensor] + list(self.aliases or []) + list(self.tied_names or [])
+        return resolve_tensor_name(
+            loader.index, self.tensor, self.aliases, self.tied_names
         )
-        for name in all_names:
-            if name in loader.index.tensor_paths:
-                return name
-            # Some checkpoints (e.g. Gemma 3/4 multimodal) nest everything
-            # one level deeper under a top-level "model." prefix that isn't
-            # reflected in the architecture template names.
-            if not name.startswith("model."):
-                candidate = f"model.{name}"
-                if candidate in loader.index.tensor_paths:
-                    return candidate
-            elif name.startswith("model."):
-                candidate = name[len("model."):]
-                if candidate in loader.index.tensor_paths:
-                    return candidate
-        return None
 
     def execute(self) -> Optional[torch.Tensor]:
         loader = LoaderCache().get(self.model)
@@ -196,6 +181,31 @@ class GatherTensors(Task[Dict[ModelReference, torch.Tensor]]):
             key2model[key]: kwargs[key] for key in key2model if kwargs[key] is not None
         }
 
+def resolve_tensor_name(
+    index: "ShardedTensorIndex",
+    name: str,
+    aliases: Optional[Tuple[str, ...]] = None,
+    tied_names: Optional[Tuple[str, ...]] = None,
+) -> Optional[str]:
+    """Find the actual key present in `index` for a logical tensor name,
+    accounting for aliases, tied names, and the "model." prefix nesting
+    seen in some checkpoints (e.g. Gemma 3/4 multimodal)."""
+    all_names = [name] + list(aliases or []) + list(tied_names or [])
+    for candidate_name in all_names:
+        if candidate_name in index.tensor_paths:
+            return candidate_name
+        # Some checkpoints (e.g. Gemma 3/4 multimodal) nest everything
+        # one level deeper under a top-level "model." prefix that isn't
+        # reflected in the architecture template names.
+        if not candidate_name.startswith("model."):
+            prefixed = f"model.{candidate_name}"
+            if prefixed in index.tensor_paths:
+                return prefixed
+        else:
+            stripped = candidate_name[len("model."):]
+            if stripped in index.tensor_paths:
+                return stripped
+    return None
 
 class TensorWriterTask(Task[TensorWriter]):
     out_path: str
