@@ -41,8 +41,13 @@ class NearSwapTask(Task[torch.Tensor]):
         return {"tensors": self.gather_tensors}
 
     def execute(self, tensors: Dict[ModelReference, torch.Tensor]) -> torch.Tensor:
-        if self.t <= 0:
-            raise RuntimeError(f"Threshold cannot be <= zero, got {self.t}")
+        # t == 0 is valid: lweight = 0/|v0-v1| -> output == base, i.e. the
+        # secondary model contributes nothing at this tensor. Required for
+        # per-layer t gradients that ramp from zero (e.g. [0, ..., 0]).
+        if self.t < 0:
+            raise RuntimeError(f"Threshold cannot be negative, got {self.t}")
+        if self.t == 0:
+            return tensors[self.base_model]
         if len(tensors) == 1:
             return list(tensors.values())[0]
         elif len(tensors) != 2:
