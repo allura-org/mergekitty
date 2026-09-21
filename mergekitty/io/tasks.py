@@ -186,11 +186,18 @@ def resolve_tensor_name(
     name: str,
     aliases: Optional[Tuple[str, ...]] = None,
     tied_names: Optional[Tuple[str, ...]] = None,
+    include_tied: bool = True,
 ) -> Optional[str]:
     """Find the actual key present in `index` for a logical tensor name,
     accounting for aliases, tied names, and the "model." prefix nesting
-    seen in some checkpoints (e.g. Gemma 3/4 multimodal)."""
-    all_names = [name] + list(aliases or []) + list(tied_names or [])
+    seen in some checkpoints (e.g. Gemma 3/4 multimodal).
+
+    Pass include_tied=False for existence checks: a weight reachable only
+    through a tied partner is not a distinct tensor in the checkpoint.
+    """
+    all_names = [name] + list(aliases or [])
+    if include_tied:
+        all_names += list(tied_names or [])
     for candidate_name in all_names:
         if candidate_name in index.tensor_paths:
             return candidate_name
@@ -206,6 +213,29 @@ def resolve_tensor_name(
             if stripped in index.tensor_paths:
                 return stripped
     return None
+
+
+def output_tensor_name(
+    index: "ShardedTensorIndex",
+    name: str,
+) -> str:
+    """Canonical output name for a weight: the spelling actually used by
+    checkpoints of this architecture, with the "model." prefix normalized
+    to match the index. Unlike resolve_tensor_name, this never falls back
+    through aliases or tied names - a tied weight (e.g. lm_head) must keep
+    its own output name rather than being redirected onto its partner."""
+    if name in index.tensor_paths:
+        return name
+    if not name.startswith("model."):
+        prefixed = f"model.{name}"
+        if prefixed in index.tensor_paths:
+            return prefixed
+    else:
+        stripped = name[len("model."):]
+        if stripped in index.tensor_paths:
+            return stripped
+    return name
+
 
 class TensorWriterTask(Task[TensorWriter]):
     out_path: str

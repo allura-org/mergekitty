@@ -38,6 +38,7 @@ from mergekitty.io.tasks import (
     ReturnTensor,
     SaveTensor,
     TensorWriterTask,
+    output_tensor_name,
     resolve_tensor_name,
 )
 from mergekitty.merge_methods import MergeMethod
@@ -145,6 +146,11 @@ class MergePlanner:
                     w_in.name,
                     aliases=w_in.aliases,
                     tied_names=w_in.tied_names,
+                    # A weight reachable only via a tied partner is not a
+                    # distinct tensor in the checkpoint - an optional tied
+                    # weight (e.g. lm_head under tied embeddings) must be
+                    # skipped, not materialized as a copy.
+                    include_tied=False,
                 ) is not None:
                     any_weight = True
                     break
@@ -272,11 +278,24 @@ class MergePlanner:
             max_shard_size=self.options.out_shard_size,
             safe_serialization=self.options.safe_serialization,
         )
+        # Output names follow the base model's checkpoint spelling, so
+        # arch-template names (which may lack a "model." prefix) do not
+        # leak into the written safetensors.
+        base_index = (
+            LoaderCache().get(self.config.base_model).index
+            if self.config.base_model is not None
+            else None
+        )
         save_tasks = []
         for weight, tensor_task in self._tensors:
+            out_name = (
+                output_tensor_name(base_index, weight.name)
+                if base_index is not None
+                else weight.name
+            )
             save_tasks.append(
                 SaveTensor(
-                    tensor_name=weight.name,
+                    tensor_name=out_name,
                     tensor_task=tensor_task,
                     writer_task=writer_task,
                     clone=self.options.clone_tensors,
